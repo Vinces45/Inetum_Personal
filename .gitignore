@@ -1,0 +1,4 @@
+env_tfg/
+__pycache__/
+*.pyc
+.vscode/
