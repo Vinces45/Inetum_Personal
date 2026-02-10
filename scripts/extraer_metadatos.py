@@ -2,9 +2,7 @@ import os
 import re
 import pypdf
 import json
-import spacy
 from pathlib import Path
-from fuzzywuzzy import process 
 
 def analizar_documento(ruta_archivo):
     #Preparar JSON con mis "Variables Críticas"
@@ -45,7 +43,6 @@ def analizar_documento(ruta_archivo):
 
 
 
-nlp = spacy.load("es_core_news_md")
 
 BASE_DIR = Path(__file__).resolve().parent        # scripts/
 PROJECT_ROOT = BASE_DIR.parent                    # Proyecto/
