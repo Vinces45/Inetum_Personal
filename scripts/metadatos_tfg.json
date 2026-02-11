@@ -41,7 +41,7 @@
         "presupuesto": "196.785,41",
         "cpv": "No encontrado",
         "tramitacion": "Urgente",
-        "plazo": "No encontrado",
+        "plazo": "5 años",
         "tipo_pliego": "PCAP"
     },
     {
@@ -86,7 +86,7 @@
         "presupuesto": "No encontrado",
         "cpv": "No encontrado",
         "tramitacion": "Ordinaria",
-        "plazo": "No encontrado",
+        "plazo": "10 años",
         "tipo_pliego": "PPT"
     }
 ]

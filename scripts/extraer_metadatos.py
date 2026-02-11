@@ -1,14 +1,17 @@
 import os
 import re
+import requests
 import pypdf
 import json
 from pathlib import Path
 
 
-def limpiar_valor(texto):
+def limpiar_texto(texto):
     if texto:
         return " ".join(texto.split()).strip()
     return "No encontrado"
+
+
 
 def analizar_documento(ruta_archivo):
     datos = {
@@ -28,42 +31,62 @@ def analizar_documento(ruta_archivo):
         for page in reader.pages:
             texto_completo += page.extract_text() + " "
         
-        texto_limpio = limpiar_valor(texto_completo)
+        texto_limpio = limpiar_texto(texto_completo)
 
-        # 1. Expediente: Busqueda por patron de La Rioja (XX-X-X.XX-XXXX/202X)
-        patron_rioja = r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})"
-        match_exp = re.search(patron_rioja, texto_limpio)
-        if match_exp:
-            datos["expediente"] = match_exp.group(1)
+        # 1. Expediente: Busqueda por patron con este formato (XX-X-X.XX-XXXX/202X)
+        patron_expediente = r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})"
+        expediente_encontrado = re.search(patron_expediente, texto_limpio)
+        if expediente_encontrado:
+            datos["expediente"] = expediente_encontrado.group(1)
         
-        # 2. CPV: Flexible con espacios
-        match_cpv = re.search(r"(\d{8}\s*-\s*\d)", texto_limpio)
-        if match_cpv:
-            datos["cpv"] = match_cpv.group(1).replace(" ", "")
+        # 2. CPV
+        cpv_encontrado = re.search(r"(\d{8}\s*-\s*\d)", texto_limpio)
+        if cpv_encontrado:
+            datos["cpv"] = cpv_encontrado.group(1).replace(" ", "")
 
         # 3. Tramitacion
         if "URGENTE" in texto_limpio.upper():
             datos["tramitacion"] = "Urgente"
 
-        # 4. Presupuesto: Filtro de miles para evitar ruidos (como el 6,49)
-        # Solo acepta cifras con punto de miles: ej 56.264,00
-        match_pres = re.search(r"(?:licitacion|base|total).*?(\d{1,3}(?:\.\d{3})+(?:,\d{2}))\s*(?:euros|€)", texto_limpio, re.IGNORECASE)
-        if match_pres:
-            datos["presupuesto"] = match_pres.group(1)
+        # 4. Presupuesto: Solo acepta cifras con punto de miles: ej 56.264,00
+        presupuesto_encontrado = re.search(r"(?:licitacion|base|total).*?(\d{1,3}(?:\.\d{3})+(?:,\d{2}))\s*(?:euros|€)", texto_limpio, re.IGNORECASE)
+        if presupuesto_encontrado:
+            datos["presupuesto"] = presupuesto_encontrado.group(1)
         
-        # 5. Plazo: Ajustado para no cortar palabras (meses, dias, etc)
-        # Ordenamos de mas largo a mas corto (meses antes que mes)
-        patrones_plazo = r"(?:meses|mes|dias|dia|anos|ano|semanas|semana)"
-        match_plazo = re.search(r"(?:plazo|duracion).*?(\d+\s*" + patrones_plazo + r")", texto_limpio, re.IGNORECASE)
-        if match_plazo:
-            datos["plazo"] = match_plazo.group(1)
+        # 5. Plazo
+        patrones_plazo = r"(?:meses|mes|dias|dia|a.os|a.o|semanas|semana)"
+        plazo_encontrado = re.search(r"(?:plazo|duracion).*?(\d+\s*" + patrones_plazo + r")", texto_limpio, re.IGNORECASE)
+        if plazo_encontrado:
+            datos["plazo"] = plazo_encontrado.group(1)
         
     except Exception as e:
         print(f"Error: {e}")
     
     return datos
 
+def consultar_llama(texto_pdf, variables_solicitadas):
+    url = "http://localhost:11434/api/generate"
+    
+    # El prompt le pide a la IA que complete lo que el Regex no puede
+    prompt = f"""
+    Eres un experto legal. Analiza este fragmento de pliego y extrae: {variables_solicitadas}.
+    Responde solo en formato JSON.
+    
+    Texto: {texto_pdf[:3000]}
+    """
+    
+    payload = {
+        "model": "llama3",
+        "prompt": prompt,
+        "format": "json",
+        "stream": False
+    }
 
+    try:
+        response = requests.post(url, json=payload)
+        return json.loads(response.json()["response"])
+    except:
+        return None
 
 
 BASE_DIR = Path(__file__).resolve().parent        # scripts/
