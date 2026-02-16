@@ -12,7 +12,6 @@ def limpiar_texto(texto):
     return "No encontrado"
 
 
-
 def analizar_documento(ruta_archivo):
     datos = {
         "archivo": os.path.basename(ruta_archivo),
@@ -58,35 +57,14 @@ def analizar_documento(ruta_archivo):
         plazo_encontrado = re.search(r"(?:plazo|duracion).*?(\d+\s*" + patrones_plazo + r")", texto_limpio, re.IGNORECASE)
         if plazo_encontrado:
             datos["plazo"] = plazo_encontrado.group(1)
+
         
     except Exception as e:
         print(f"Error: {e}")
     
     return datos
 
-def consultar_llama(texto_pdf, variables_solicitadas):
-    url = "http://localhost:11434/api/generate"
-    
-    # El prompt le pide a la IA que complete lo que el Regex no puede
-    prompt = f"""
-    Eres un experto legal. Analiza este fragmento de pliego y extrae: {variables_solicitadas}.
-    Responde solo en formato JSON.
-    
-    Texto: {texto_pdf[:3000]}
-    """
-    
-    payload = {
-        "model": "llama3",
-        "prompt": prompt,
-        "format": "json",
-        "stream": False
-    }
 
-    try:
-        response = requests.post(url, json=payload)
-        return json.loads(response.json()["response"])
-    except:
-        return None
 
 
 BASE_DIR = Path(__file__).resolve().parent        # scripts/
