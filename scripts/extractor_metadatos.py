@@ -9,9 +9,7 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 MODELO_LLM = "llama3" 
 
 def limpiar_texto_basico(texto):
-    if texto:
-        return " ".join(texto.split())
-    return ""
+    return " ".join(texto.split())
 
 def limpiar_y_extraer_json(texto):
     if not texto: 
@@ -258,7 +256,7 @@ def procesar_documento(ruta):
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent      
     PROJECT_ROOT = BASE_DIR.parent                  
-    carpeta_datos = PROJECT_ROOT / "datos" / "pdfs"
+    carpeta_datos = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
     ruta_final_json = PROJECT_ROOT / "datos" / "metadatos" / "metadatos_finales.json"
     
     resultados = []
