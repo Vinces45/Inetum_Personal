@@ -4,20 +4,26 @@ import os
 import json
 import re
 from typing import List, Dict, Any
+from pathlib import Path
 
 # Librerias de LangChain y Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
+from tqdm import tqdm
+import time
+
 # --- CONFIGURACION DE RUTAS ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DIR_PDFS_PCAP = os.path.join(BASE_DIR, "datos", "pdfs", "pcap")
-DIR_PDFS_PPT = os.path.join(BASE_DIR, "datos", "pdfs", "ppt")
-DIR_JSON = os.path.join(BASE_DIR, "datos", "metadatos", "metadatos_finales.json")
-DIR_DB = os.path.join(BASE_DIR, "datos", "base_datos_vectorial")
+BASE_DIR = Path(__file__).resolve().parent      
+PROJECT_ROOT = BASE_DIR.parent 
+#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DIR_PDFS_PCAP = os.path.join(PROJECT_ROOT, "datos", "pdfs", "pcap")
+DIR_PDFS_PPT = os.path.join(PROJECT_ROOT, "datos", "pdfs", "ppt")
+DIR_JSON = os.path.join(PROJECT_ROOT, "datos", "metadatos", "metadatos_finales.json")
+DIR_DB = os.path.join(PROJECT_ROOT, "datos", "base_datos_vectorial")
 
 def extraer_id(nombre_archivo):
     match = re.match(r"^(\d+)_", nombre_archivo)
@@ -131,25 +137,42 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, mapa_meta):
 
 
 def configurar_chunking_legal():
-    """
-    Configuracion CLAVE para documentos legales.
-    Intenta no cortar a mitad de un articulo.
-    """
+    
     return RecursiveCharacterTextSplitter(
         separators=[
-            "\nARTÍCULO", "\nArtículo", 
-            "\nCLÁUSULA", "\nCláusula", 
-            "\nANEXO", 
-            "\n\n", # Parrafos
-            ". ",   # Frases
-            " "     # Palabras
+            # 1. Numeracion principal (Ej: "1. OBJETO" o "1.- CARACTER")
+            # \d+ (numeros), [\.\-]+ (punto o guion), \s+ (espacios), [A-Z] (mayuscula)
+            r"\n\d+[\.\-]+\s+[A-Z]", 
+            
+            # 2. Numeracion de subapartados (Ej: "1.1. Presupuesto")
+            r"\n\d+\.\d+\.\s+[A-Z]",
+            
+            # 3. Letras mayusculas (Ej: "A. CONDICIONES MINIMAS")
+            r"\n[A-Z]\.\s+[A-Z]",
+            
+            # 4. Palabras clave clasicas (el comodin '.' evita tildes en el codigo)
+            r"\nART.CULO", r"\nArt.culo", 
+            r"\nCL.USULA", r"\nCl.usula", 
+            r"\nANEXO", r"\nAnexo",
+            
+            # 5. Saltos de parrafo estandar
+            r"\n\n", 
+            
+            # 6. Listas con guiones o letras (Ej: "- Tarea 1" o "a) Tarea 2")
+            r"\n-\s",
+            r"\n[a-z]\)\s",
+            
+            # 7. Red de seguridad: Frases y palabras
+            r"\.\s", 
+            r" "
         ],
-        chunk_size=1500,  # Tamaño del bloque (ajustable)
-        chunk_overlap=200, # Solapamiento para mantener contexto
-        length_function=len
+        chunk_size=800, #1500 // 1000 // 800 // 600 
+        chunk_overlap=120, #200 // 150 // 120 // 100
+        length_function=len,
+        is_separator_regex=True
     )
 
-def main():
+if __name__ == "__main__":
     print("--- INICIO DE INGESTA Y CHUNKING ---")
     
     # 1. Cargar metadatos del JSON
@@ -159,10 +182,7 @@ def main():
     # 2. Cargar PDFs y fusionar con metadatos
     print("2. Leyendo PDFs...")
     documentos_base = cargar_y_procesar_documentos(DIR_PDFS_PCAP, DIR_PDFS_PPT, mapa_metadatos)
-    
-    if not documentos_base:
-        print("No hay documentos. Saliendo.")
-        return
+   
 
     # 3. CHUNKING (El paso crucial que pedias)
     print("3. Ejecutando Chunking Inteligente...")
@@ -178,19 +198,35 @@ def main():
         print(f"Metadatos Heredados: {chunks[0].metadata}\n")
 
     # 4. EMBEDDINGS Y GUARDADO (ChromaDB)
-    print("4. Usando Ollama (nomic-embed-text) para embeddings...")
+    print("4. Usando Ollama (mxbai-embed-large) para embeddings...")
     embeddings = OllamaEmbeddings(model="mxbai-embed-large")
     
-    # Si la carpeta ya existe, Chroma intentara añadir, no sobrescribir a lo bruto
-    vector_db = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
+    
+    vector_db = Chroma(
+        embedding_function=embeddings,
         persist_directory=DIR_DB,
         collection_name="pliegos_oficiales"
     )
-    
-    print(f"--- PROCESO COMPLETADO ---")
-    print(f"Base de datos guardada en: {DIR_DB}")
 
-if __name__ == "__main__":
-    main()
+    TAMANO_LOTE = 50 
+    
+    print(f"\nIniciando guardado en ChromaDB por lotes de {TAMANO_LOTE}...")
+    
+    for i in tqdm(range(0, len(chunks), TAMANO_LOTE), desc="Progreso Embeddings"):
+        lote_chunks = chunks[i : i + TAMANO_LOTE]
+        
+        try:
+            vector_db.add_documents(lote_chunks)
+            time.sleep(0.5) 
+        except Exception as e:
+            # Si el lote de 50 falla, procesamos uno a uno para aislar al culpable
+            for chunk_individual in lote_chunks:
+                try:
+                    vector_db.add_documents([chunk_individual])
+                except Exception as ex:
+                    # Imprimimos cual fallo exactamente y continuamos
+                    print(f"\n[DESCARTADO] Exceso de tokens en: {chunk_individual.metadata.get('source', 'Desconocido')}")
+                    continue
+            
+    print(f"\n--- PROCESO COMPLETADO ---")
+    print(f"Base de datos guardada correctamente en: {DIR_DB}")
