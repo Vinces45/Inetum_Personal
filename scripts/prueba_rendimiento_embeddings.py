@@ -9,11 +9,9 @@ PROJECT_ROOT = BASE_DIR.parent
 DIR_DB = os.path.join(PROJECT_ROOT, "datos", "base_datos_vectorial")
 
 def realizar_test():
-    # 1. Cargamos el mismo modelo de embeddings que usamos en la ingesta
     print("Conectando con Ollama (mxbai-embed-large)...")
     embeddings = OllamaEmbeddings(model="mxbai-embed-large")
     
-    # 2. Conectamos a la base de datos existente (SOLO LECTURA)
     if not os.path.exists(DIR_DB):
         print(f"Error: No se encuentra la base de datos en {DIR_DB}")
         return
@@ -25,34 +23,44 @@ def realizar_test():
     )
     
     print("\n" + "="*50)
-    print("SISTEMA DE RECUPERACION DE PLIEGOS (TEST)")
+    print("SISTEMA DE RECUPERACION CON FILTRO HIBRIDO")
     print("="*50)
-    print("Escribe 'salir' para cerrar el programa.\n")
     
     while True:
-        consulta = input("Haz una pregunta sobre los pliegos: ")
-        
-        if consulta.lower() == "salir":
-            break
+        consulta = input("\nHaz una pregunta (o 'salir'): ")
+        if consulta.lower() == "salir": break
             
-        # 3. Busqueda por similitud
-        # k=3 pide los 3 fragmentos mas relevantes
-        # similarity_search_with_score nos da la 'distancia' (cuanto mas baja, mejor)
-        resultados = vector_db.similarity_search_with_score(consulta, k=5)
+        # Preguntamos al usuario en que tipo de documento quiere buscar
+        tipo_doc = input("¿Filtrar por tipo? (Escribe PCAP, PPT, o pulsa Enter para buscar en todos): ").strip().upper()
         
-        print(f"\nAnalizando {len(resultados)} fragmentos mas cercanos...")
-        print("-" * 50)
-        
-        for i, (doc, score) in enumerate(resultados):
-            print(f"RESULTADO #{i+1} | SCORE: {score:.4f} (Menor es mejor)")
-            print(f"ARCHIVO: {doc.metadata.get('source', 'Desconocido')}")
-            print(f"TIPO: {doc.metadata.get('tipo_documento', 'N/A')} | ID: {doc.metadata.get('doc_id', 'N/A')}")
+        # Construimos el filtro dinamicamente
+        filtro_metadatos = None
+        if tipo_doc in ["PCAP", "PPT"]:
+            filtro_metadatos = {"tipo_documento": tipo_doc}
+            print(f"-> Aplicando filtro estricto: {filtro_metadatos}")
+        else:
+            print("-> Buscando en toda la base de datos...")
+
+        try:
+            # AQUI ESTA LA MAGIA: Pasamos el filtro a ChromaDB
+            if filtro_metadatos:
+                resultados = vector_db.similarity_search_with_score(consulta, k=3, filter=filtro_metadatos)
+            else:
+                resultados = vector_db.similarity_search_with_score(consulta, k=3)
             
-            # Mostramos un resumen del contenido encontrado
-            contenido = doc.page_content.replace('\n', ' ').strip()
-            print(f"TEXTO: {contenido[:400]}...")
+            print(f"\nAnalizando {len(resultados)} fragmentos mas cercanos...")
             print("-" * 50)
-        print("\n")
+            
+            for i, (doc, score) in enumerate(resultados):
+                print(f"RESULTADO #{i+1} | SCORE: {score:.4f} (Menor es mejor)")
+                print(f"ARCHIVO: {doc.metadata.get('source', 'Desconocido')}")
+                print(f"METADATOS: {doc.metadata}")
+                contenido = doc.page_content.replace('\n', ' ').strip()
+                print(f"TEXTO: {contenido[:400]}...")
+                print("-" * 50)
+                
+        except Exception as e:
+            print(f"Error en la busqueda: {e}")
 
 if __name__ == "__main__":
     realizar_test()
