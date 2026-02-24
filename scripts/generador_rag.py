@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from langchain_chroma import Chroma
@@ -12,7 +13,6 @@ PROJECT_ROOT = BASE_DIR.parent
 DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
 
 def inicializar_bd():
-    """Inicializa la conexion a la base de datos vectorial una sola vez."""
     print("[SISTEMA] Conectando a ChromaDB...")
     embeddings = OllamaEmbeddings(model="mxbai-embed-large")
     return Chroma(
@@ -22,89 +22,175 @@ def inicializar_bd():
     )
 
 def inicializar_llm():
-    """Inicializa el modelo de lenguaje Llama 3."""
     print("[SISTEMA] Conectando a Llama 3...")
     return ChatOllama(model="llama3", temperature=0.1)
 
-def generar_borrador_seccion(vector_db, llm, peticion_usuario, tipo_doc=None):
-    """
-    Ejecuta la cadena RAG con un filtro dinamico.
-    Esta es la funcion pura que llamara tu Orquestador en el futuro.
-    """
-    # 1. Configurar los argumentos de busqueda (Filtro Hibrido)
-    search_kwargs = {"k": 3}
-    if tipo_doc in ["PCAP", "PPT"]:
-        search_kwargs["filter"] = {"tipo_documento": tipo_doc}
-        print(f"\n[INFO] Aplicando filtro hibrido en base de datos: {search_kwargs['filter']}")
-    else:
-        print("\n[INFO] Buscando en toda la base de datos (sin filtro).")
+class BorradorPliego:
+    def __init__(self, archivo_respaldo="datos/estado/borrador_actual.json"):
+        self.archivo_respaldo = archivo_respaldo
+        # Nos aseguramos de que el directorio exista
+        os.makedirs(os.path.dirname(self.archivo_respaldo), exist_ok=True)
+        # Al instanciar, intentamos recuperar el estado anterior
+        self.secciones = self.cargar_respaldo()
+        
+    def actualizar_seccion(self, titulo, contenido):
+        self.secciones[titulo] = contenido
+        # Guardamos en disco automaticamente cada vez que hay un cambio
+        self.guardar_respaldo()
+        
+    def obtener_seccion(self, titulo):
+        return self.secciones.get(titulo, None)
+        
+    def mostrar_documento(self):
+        doc = "\n" + "="*50 + "\nBORRADOR ACTUAL DEL PLIEGO\n" + "="*50 + "\n"
+        if not self.secciones:
+            return doc + "El documento esta vacio.\n" + "="*50
+            
+        for titulo, texto in self.secciones.items():
+            doc += f"\n--- {titulo.upper()} ---\n{texto}\n"
+        return doc + "="*50
 
-    # 2. Crear el Retriever dinamico para esta peticion especifica
+    # --- NUEVOS METODOS DE PERSISTENCIA ---
+    
+    def guardar_respaldo(self):
+        """Serializa el diccionario y lo guarda en disco de forma segura."""
+        try:
+            with open(self.archivo_respaldo, 'w', encoding='utf-8') as f:
+                json.dump(self.secciones, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"[ERROR PERSISTENCIA] No se pudo guardar el borrador: {e}")
+
+    def cargar_respaldo(self):
+        """Lee el archivo JSON del disco para restaurar el estado en caso de caida."""
+        if os.path.exists(self.archivo_respaldo):
+            try:
+                with open(self.archivo_respaldo, 'r', encoding='utf-8') as f:
+                    datos_recuperados = json.load(f)
+                    print("[SISTEMA] Borrador anterior recuperado con exito.")
+                    return datos_recuperados
+            except Exception as e:
+                print(f"[ERROR PERSISTENCIA] Archivo corrupto, iniciando vacio: {e}")
+        return {}
+        
+    def limpiar_borrador(self):
+        """Borra el estado cuando el pliego se da por finalizado y exportado."""
+        self.secciones = {}
+        if os.path.exists(self.archivo_respaldo):
+            os.remove(self.archivo_respaldo)
+
+def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros_dict=None):
+    """Genera una seccion desde cero usando RAG estandar."""
+    search_kwargs = {"k": 3}
+    
+    if filtros_dict:
+        condiciones = [{clave: valor} for clave, valor in filtros_dict.items()]
+        search_kwargs["filter"] = condiciones[0] if len(condiciones) == 1 else {"$and": condiciones}
+
     retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
 
-    # 3. Prompt Maestro
     template = """
     Eres un Letrado experto en Contratacion Publica del Gobierno de La Rioja.
-    Tu objetivo es redactar un borrador para una seccion de un pliego administrativo basandote UNICAMENTE en el contexto historico proporcionado.
+    Redacta la siguiente seccion para un pliego basandote UNICAMENTE en el contexto proporcionado.
     
-    REGLAS CRITICAS:
-    1. Usa un tono formal, juridico y propio de la administracion publica espanola.
-    2. No inventes leyes, normativas, plazos ni penalizaciones que no aparezcan en el contexto.
-    3. Si el contexto no contiene informacion suficiente para responder, indicalo claramente y no inventes texto.
-
-    CONTEXTO RECUPERADO DE PLIEGOS ANTERIORES:
+    CONTEXTO RECUPERADO:
     {contexto}
 
-    PETICION DEL USUARIO:
+    SECCION SOLICITADA:
     {pregunta}
 
     REDACCION DEL BORRADOR:
     """
     prompt = ChatPromptTemplate.from_template(template)
 
-    # 4. Funcion auxiliar de formateo
     def formatear_documentos(docs):
-        if not docs:
-            return "No se encontro contexto relevante en la base de datos."
-        return "\n\n---\n\n".join(doc.page_content for doc in docs)
+        return "\n\n---\n\n".join(doc.page_content for doc in docs) if docs else "Sin contexto."
 
-    # 5. Construir la Cadena RAG (LCEL)
     cadena_rag = (
         {"contexto": retriever | formatear_documentos, "pregunta": RunnablePassthrough()}
         | prompt
         | llm
         | StrOutputParser()
     )
-    
-    # 6. Ejecutar y devolver el resultado
     return cadena_rag.invoke(peticion_usuario)
 
-if __name__ == "__main__":
-    print("=== INICIANDO SISTEMA DE REDACCION ASISTIDA ===")
+def corregir_seccion_existente(vector_db, llm, texto_actual, feedback_usuario, filtros_dict=None):
+    """Reescribe una seccion existente aplicando el feedback del usuario y consultando la BD."""
+    search_kwargs = {"k": 2}
+    if filtros_dict:
+        condiciones = [{clave: valor} for clave, valor in filtros_dict.items()]
+        search_kwargs["filter"] = condiciones[0] if len(condiciones) == 1 else {"$and": condiciones}
+
+    retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
+
+    template_correccion = """
+    Eres un Letrado experto en Contratacion Publica.
+    Tienes el siguiente borrador de una seccion de un pliego:
     
-    # Inicializamos recursos al arrancar (Patron Singleton manual)
+    BORRADOR ACTUAL:
+    {texto_actual}
+    
+    El usuario ha solicitado el siguiente CAMBIO o CORRECCION:
+    {pregunta}
+    
+    CONTEXTO RECUPERADO (Por si necesitas consultar normativa para el cambio):
+    {contexto}
+    
+    INSTRUCCIONES:
+    1. Reescribe el BORRADOR ACTUAL aplicando el CAMBIO solicitado.
+    2. Manten el mismo tono formal.
+    3. Devuelve UNICAMENTE la nueva redaccion de la seccion modificada, sin comentarios.
+    """
+    prompt = ChatPromptTemplate.from_template(template_correccion)
+
+    def formatear_documentos(docs):
+        return "\n\n---\n\n".join(doc.page_content for doc in docs) if docs else "Sin contexto extra."
+
+    # Inyectamos el texto_actual en el pipeline dinamicamente
+    cadena_correccion = (
+        {
+            "contexto": retriever | formatear_documentos, 
+            "pregunta": RunnablePassthrough(),
+            "texto_actual": lambda x: texto_actual
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+    return cadena_correccion.invoke(feedback_usuario)
+
+if __name__ == "__main__":
+    print("=== INICIANDO SISTEMA RAG ITERATIVO ===")
+    
     db_vectorial = inicializar_bd()
     modelo_llm = inicializar_llm()
+    documento = BorradorPliego()
     
     print("\nMotor listo. Escribe 'salir' para terminar el programa.")
     
+    # Ejemplo de flujo simulando el orquestador
     while True:
-        peticion = input("\n¿Que seccion del pliego necesitas redactar?: ")
-        if peticion.lower() == "salir":
-            break
-            
-        # Simulamos lo que hara el Orquestador: decidir el filtro
-        filtro = input("¿Filtrar por tipo (PCAP/PPT)? (Pulsa Enter para omitir): ").strip().upper()
-        if filtro not in ["PCAP", "PPT"]:
-            filtro = None
-            
-        print("\nGenerando borrador (analizando historico y redactando)...")
-        print("-" * 50)
+        print(documento.mostrar_documento())
         
-        try:
-            # Llamada limpia a nuestra funcion pura
-            respuesta_final = generar_borrador_seccion(db_vectorial, modelo_llm, peticion, filtro)
-            print(respuesta_final)
-            print("-" * 50)
-        except Exception as e:
-            print(f"\nError critico durante la generacion: {e}")
+        accion = input("\nElige accion (1: Nueva Seccion, 2: Corregir Seccion, salir): ").strip()
+        if accion.lower() == "salir": break
+            
+        if accion == "1":
+            titulo = input("Nombre de la seccion (ej. 'Penalidades'): ")
+            peticion = input(f"Instrucciones para generar '{titulo}': ")
+            
+            print("\nGenerando borrador inicial...")
+            texto_generado = generar_seccion_nueva(db_vectorial, modelo_llm, peticion, {"tipo_documento": "PCAP"})
+            documento.actualizar_seccion(titulo, texto_generado)
+            
+        elif accion == "2":
+            titulo = input("Nombre de la seccion a corregir: ")
+            texto_actual = documento.obtener_seccion(titulo)
+            
+            if not texto_actual:
+                print("Esa seccion no existe en el borrador.")
+                continue
+                
+            feedback = input("¿Que cambio quieres aplicar?: ")
+            print("\nAplicando correccion...")
+            texto_corregido = corregir_seccion_existente(db_vectorial, modelo_llm, texto_actual, feedback, {"tipo_documento": "PCAP"})
+            documento.actualizar_seccion(titulo, texto_corregido)

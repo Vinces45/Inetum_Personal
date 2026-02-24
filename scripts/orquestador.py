@@ -3,29 +3,43 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
-# Importamos tu motor RAG (Asegurate de que generador_rag.py este en la misma carpeta)
-from generador_rag import inicializar_bd, inicializar_llm, generar_borrador_seccion
+# Importamos tu motor RAG y el gestor de estado (BorradorPliego)
+from generador_rag import inicializar_bd, inicializar_llm, generar_seccion_nueva, corregir_seccion_existente, BorradorPliego
 
-def analizar_peticion_usuario(peticion):
+def analizar_peticion_usuario(peticion, estado_documento):
     """
-    Fase 1: LLM Puro (Sin RAG)
-    Usa el LLM para extraer la intencion del usuario y generar un plan de accion en JSON.
+    Fase 1: Enrutador Inteligente
+    Evalua si el usuario quiere crear algo nuevo o modificar el borrador actual.
     """
-    print("\n[ORQUESTADOR] Analizando peticion del usuario...")
+    print("\n[ORQUESTADOR] Analizando intencion del usuario...")
     llm_orquestador = ChatOllama(model="llama3", temperature=0.0, format="json")
     
+    # Le pasamos al LLM las secciones que ya existen para que sepa de que le habla el usuario
+    secciones_existentes = list(estado_documento.secciones.keys())
+    
     prompt_orquestador = """
-    Eres el Orquestador de un sistema de generacion de pliegos del Gobierno de La Rioja.
-    Analiza la peticion del usuario y devuelve UNICAMENTE un objeto JSON con esta estructura exacta:
+    Eres el Orquestador del sistema de pliegos del Gobierno de La Rioja.
+    Tu tarea es leer la peticion del usuario y generar UNICAMENTE un JSON valido.
+    
+    SECCIONES ACTUALMENTE EN EL BORRADOR: {secciones_actuales}
+    
+    REGLAS PARA EL JSON:
+    - "accion": Debe ser "crear" (si pide redactar algo nuevo) o "modificar" (si pide cambiar una seccion existente).
+    - "secciones_a_crear": Lista de nombres de secciones a generar (solo si accion es "crear").
+    - "seccion_a_modificar": Nombre de la seccion que quiere cambiar (solo si accion es "modificar").
+    - "feedback": Lo que el usuario quiere cambiar (solo si accion es "modificar").
+    - "filtros": Extrae "tipo_contrato" (Obras, Servicios o Suministros) y "tipo_documento" (PCAP o PPT). Usa null si no se mencionan.
+
+    FORMATO EXACTO ESPERADO:
     {{
+        "accion": "crear",
+        "secciones_a_crear": ["Objeto del contrato", "Penalidades"],
+        "seccion_a_modificar": null,
+        "feedback": null,
         "filtros": {{
-            "tipo_documento": "PCAP o PPT (si se deduce, si no null)",
-            "tramitacion": "Urgente u Ordinaria (si se deduce, si no null)"
-        }},
-        "secciones_a_generar": [
-            "Nombre de la seccion 1",
-            "Nombre de la seccion 2"
-        ]
+            "tipo_contrato": "Servicios",
+            "tipo_documento": "PCAP"
+        }}
     }}
 
     PETICION DEL USUARIO: "{peticion}"
@@ -35,62 +49,80 @@ def analizar_peticion_usuario(peticion):
     cadena = prompt | llm_orquestador | JsonOutputParser()
     
     try:
-        plan = cadena.invoke({"peticion": peticion})
-        # Limpiamos los filtros null para no pasarselos a ChromaDB
-        filtros_limpios = {k: v for k, v in plan.get("filtros", {}).items() if v is not None}
-        plan["filtros"] = filtros_limpios if filtros_limpios else None
+        plan = cadena.invoke({
+            "peticion": peticion, 
+            "secciones_actuales": secciones_existentes
+        })
+        
+        # Limpiamos los filtros null
+        if "filtros" in plan and plan["filtros"]:
+            filtros_limpios = {k: v for k, v in plan["filtros"].items() if v is not None}
+            plan["filtros"] = filtros_limpios if filtros_limpios else None
+            
         return plan
     except Exception as e:
         print(f"[ERROR] El Orquestador fallo al crear el JSON: {e}")
         return None
 
-def ejecutar_plan_rag(plan, db, llm):
-    """
-    Fase 2: LLM con RAG
-    Itera sobre el plan y llama a tu motor RAG por cada seccion.
-    """
-    documento_final = ""
-    filtros = plan.get("filtros")
-    secciones = plan.get("secciones_a_generar", [])
-    
-    print(f"\n[ORQUESTADOR] Iniciando redaccion de {len(secciones)} secciones con filtros: {filtros}")
-    
-    for i, seccion in enumerate(secciones, 1):
-        print(f"\n--- Redactando seccion {i}/{len(secciones)}: {seccion} ---")
-        
-        # Llamamos a TU funcion pura del archivo generador_rag.py
-        borrador_seccion = generar_borrador_seccion(db, llm, f"Redacta el apartado de: {seccion}", filtros)
-        
-        # Ensamblamos el documento
-        documento_final += f"\n\n### {i}. {seccion.upper()}\n\n"
-        documento_final += borrador_seccion
-        
-    return documento_final
-
 if __name__ == "__main__":
-    # 1. Inicializamos los recursos pesados una sola vez
     print("Arrancando el cerebro del sistema...")
     db_vectorial = inicializar_bd()
     modelo_llm_rag = inicializar_llm()
     
+    # Instanciamos la memoria del documento
+    documento_en_progreso = BorradorPliego()
+    
     print("\n" + "="*50)
-    print("CHATBOT ADMINISTRATIVO - GOBIERNO DE LA RIOJA")
+    print("SISTEMA GENERADOR DE PLIEGOS - GOBIERNO DE LA RIOJA")
     print("="*50)
+    print("Escribe tu peticion (ej. 'Genera un PCAP de Servicios con objeto y penalizaciones')")
+    print("O pide cambios (ej. 'Modifica las penalizaciones para que sean del 10%')")
+    print("Escribe 'ver' para mostrar el documento o 'salir' para terminar.")
     
     while True:
         peticion_usuario = input("\nUsuario: ")
-        if peticion_usuario.lower() == "salir": break
-            
-        # PASO 1: Analizar y Planificar
-        plan_accion = analizar_peticion_usuario(peticion_usuario)
         
-        if plan_accion:
-            print(f"\n[PLAN] {json.dumps(plan_accion, indent=2)}")
+        if peticion_usuario.lower() == "salir": 
+            break
+        elif peticion_usuario.lower() == "ver":
+            print(documento_en_progreso.mostrar_documento())
+            continue
             
-            # PASO 2: Ejecutar Redaccion Asistida
-            resultado_completo = ejecutar_plan_rag(plan_accion, db_vectorial, modelo_llm_rag)
+        # PASO 1: Analizar intencion con el LLM
+        plan_accion = analizar_peticion_usuario(peticion_usuario, documento_en_progreso)
+        
+        if not plan_accion:
+            continue
             
-            print("\n\n" + "="*50)
-            print("DOCUMENTO FINAL GENERADO:")
-            print("="*50)
-            print(resultado_completo)
+        print(f"\n[PLAN ESTRATEGICO] {json.dumps(plan_accion, indent=2)}")
+        
+        accion = plan_accion.get("accion")
+        filtros = plan_accion.get("filtros")
+        
+        # PASO 2: Ejecutar la rama correspondiente (Crear o Modificar)
+        if accion == "crear":
+            secciones = plan_accion.get("secciones_a_crear", [])
+            print(f"\n[SISTEMA] Iniciando redaccion de {len(secciones)} secciones con filtros: {filtros}")
+            
+            for seccion in secciones:
+                print(f"\n--- Redactando: {seccion} ---")
+                instruccion = f"Redacta el apartado de: {seccion}"
+                borrador = generar_seccion_nueva(db_vectorial, modelo_llm_rag, instruccion, filtros)
+                documento_en_progreso.actualizar_seccion(seccion, borrador)
+                
+            print("\n[EXITO] Secciones generadas. Escribe 'ver' para leer el documento.")
+            
+        elif accion == "modificar":
+            seccion_objetivo = plan_accion.get("seccion_a_modificar")
+            feedback = plan_accion.get("feedback")
+            
+            texto_actual = documento_en_progreso.obtener_seccion(seccion_objetivo)
+            
+            if not texto_actual:
+                print(f"\n[AVISO] No se ha encontrado la seccion '{seccion_objetivo}' en el borrador actual.")
+                print("Secciones disponibles:", list(documento_en_progreso.secciones.keys()))
+            else:
+                print(f"\n[SISTEMA] Aplicando correcciones a la seccion '{seccion_objetivo}'...")
+                texto_corregido = corregir_seccion_existente(db_vectorial, modelo_llm_rag, texto_actual, feedback, filtros)
+                documento_en_progreso.actualizar_seccion(seccion_objetivo, texto_corregido)
+                print("\n[EXITO] Seccion actualizada. Escribe 'ver' para revisar el cambio.")

@@ -16,14 +16,16 @@ from langchain_core.documents import Document
 from tqdm import tqdm
 import time
 
-# --- CONFIGURACION DE RUTAS ---
+# --- CONFIGURACION DE RUTAS ---  
+
+
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent 
-#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DIR_PDFS_PCAP = os.path.join(PROJECT_ROOT, "datos", "pdfs", "pcap")
-DIR_PDFS_PPT = os.path.join(PROJECT_ROOT, "datos", "pdfs", "ppt")
-DIR_JSON = os.path.join(PROJECT_ROOT, "datos", "metadatos", "metadatos_finales.json")
-DIR_DB = os.path.join(PROJECT_ROOT, "datos", "base_datos_vectorial")
+
+DIR_PDFS_PCAP = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
+DIR_PDFS_PPT = PROJECT_ROOT / "datos" / "pdfs" / "ppt"
+DIR_JSON = PROJECT_ROOT / "datos" / "metadatos" / "metadatos_finales.json"
+DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
 
 def extraer_id(nombre_archivo):
     match = re.match(r"^(\d+)_", nombre_archivo)
@@ -166,8 +168,8 @@ def configurar_chunking_legal():
             r"\.\s", 
             r" "
         ],
-        chunk_size=800, #1500 // 1000 // 800 // 600 
-        chunk_overlap=120, #200 // 150 // 120 // 100
+        chunk_size=1500, #1500 // 1000 // 800 // 600 
+        chunk_overlap=200, #200 // 150 // 120 // 100
         length_function=len,
         is_separator_regex=True
     )

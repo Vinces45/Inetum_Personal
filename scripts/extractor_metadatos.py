@@ -111,6 +111,8 @@ def auditar_presupuesto(texto_completo_doc, valor_candidato):
 
     # Añadimos "IVA" y "Total" para que el LLM vea la diferencia
     palabras_clave_dinero = ["presupuesto base", "valor estimado", "importe neto", "excluido", "IVA", "base de licitacion"]
+
+    
     contexto_filtrado = obtener_contexto_relevante(texto_completo_doc, palabras_clave_dinero, ventana=800)
     
     prompt = f"""
@@ -150,8 +152,13 @@ def auditar_presupuesto(texto_completo_doc, valor_candidato):
 def auditar_plazo(texto_completo_doc, valor_candidato):
     print(f"---- Obteniendo Plazo (Candidato Regex: {valor_candidato})...")
     
-    keywords_plazo = ["plazo de ejecucion", "duracion", "vigencia", "meses", "dias", "periodo", "desde"]
-    contexto_filtrado = obtener_contexto_relevante(texto_completo_doc, keywords_plazo, ventana=1000)
+
+    palabras_clave_plazo = [
+        "plazo de ejecucion", "duracion del contrato", "vigencia", 
+        "meses", "dias", "periodo de entrega", "tiempo de ejecucion",
+        "fecha de finalizacion", "calendario"
+    ]
+    contexto_filtrado = obtener_contexto_relevante(texto_completo_doc, palabras_clave_plazo, ventana=1000)
     
      
     if valor_candidato: 
