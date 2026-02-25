@@ -1,7 +1,6 @@
 import os
 import json
 import re
-from typing import List, Dict, Any
 from pathlib import Path
 
 # Librerias de LangChain y Chroma
@@ -12,7 +11,6 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
 from tqdm import tqdm
-import time
 
 # Se guarda el ids de las páginas que se hagan chunking así nos puede ayudar a futuro (doc_id + pagina + numero de chunk) para la reingesta de documentos
 # así cuando se ejecuta de nuevo este script en lugar de duplicar los vectores lo que hace es actualizarse.

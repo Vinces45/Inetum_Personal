@@ -172,9 +172,6 @@ if __name__ == "__main__":
     carpeta_datos = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
     ruta_final_json = PROJECT_ROOT / "datos" / "metadatos" / "metadatos_finales.json"
     
-    # Crear directorios si no existen
-    os.makedirs(os.path.dirname(ruta_final_json), exist_ok=True)
-    
     resultados = []
     print(f"--- Procesando documentos en {carpeta_datos} ---")
     

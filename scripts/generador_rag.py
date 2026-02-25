@@ -11,6 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent 
 DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
+DIR_RESPALDO = PROJECT_ROOT / "datos" / "respaldo" / "borrador_actual.json"
 
 def inicializar_bd():
     print("[SISTEMA] Conectando a ChromaDB...")
@@ -26,16 +27,12 @@ def inicializar_llm():
     return ChatOllama(model="llama3", temperature=0.1)
 
 class BorradorPliego:
-    def __init__(self, archivo_respaldo="datos/estado/borrador_actual.json"):
+    def __init__(self, archivo_respaldo=DIR_RESPALDO):
         self.archivo_respaldo = archivo_respaldo
-        # Nos aseguramos de que el directorio exista
-        os.makedirs(os.path.dirname(self.archivo_respaldo), exist_ok=True)
-        # Al instanciar, intentamos recuperar el estado anterior
         self.secciones = self.cargar_respaldo()
         
     def actualizar_seccion(self, titulo, contenido):
         self.secciones[titulo] = contenido
-        # Guardamos en disco automaticamente cada vez que hay un cambio
         self.guardar_respaldo()
         
     def obtener_seccion(self, titulo):
@@ -49,8 +46,6 @@ class BorradorPliego:
         for titulo, texto in self.secciones.items():
             doc += f"\n--- {titulo.upper()} ---\n{texto}\n"
         return doc + "="*50
-
-    # --- NUEVOS METODOS DE PERSISTENCIA ---
     
     def guardar_respaldo(self):
         """Serializa el diccionario y lo guarda en disco de forma segura."""
@@ -78,13 +73,16 @@ class BorradorPliego:
         if os.path.exists(self.archivo_respaldo):
             os.remove(self.archivo_respaldo)
 
-def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros_dict=None):
+def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros=None):
     """Genera una seccion desde cero usando RAG estandar."""
     search_kwargs = {"k": 3}
     
-    if filtros_dict:
-        condiciones = [{clave: valor} for clave, valor in filtros_dict.items()]
-        search_kwargs["filter"] = condiciones[0] if len(condiciones) == 1 else {"$and": condiciones}
+    if filtros:
+        condiciones = [{clave: valor} for clave, valor in filtros.items()]
+        if len(condiciones) == 1:
+            search_kwargs["filter"] = condiciones[0]
+        else:
+            search_kwargs["filter"] = {"$and": condiciones}
 
     retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
 
@@ -113,12 +111,15 @@ def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros_dict=None):
     )
     return cadena_rag.invoke(peticion_usuario)
 
-def corregir_seccion_existente(vector_db, llm, texto_actual, feedback_usuario, filtros_dict=None):
+def corregir_seccion_existente(vector_db, llm, texto_actual, feedback_usuario, filtros=None):
     """Reescribe una seccion existente aplicando el feedback del usuario y consultando la BD."""
     search_kwargs = {"k": 2}
-    if filtros_dict:
-        condiciones = [{clave: valor} for clave, valor in filtros_dict.items()]
-        search_kwargs["filter"] = condiciones[0] if len(condiciones) == 1 else {"$and": condiciones}
+    if filtros:
+        condiciones = [{clave: valor} for clave, valor in filtros.items()]
+        if len(condiciones) == 1:
+            search_kwargs["filter"] = condiciones[0]
+        else:
+            search_kwargs["filter"] = {"$and": condiciones}
 
     retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
 

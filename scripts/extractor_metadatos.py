@@ -65,12 +65,12 @@ def llamada_ollama(prompt):
         "stream": False,
         "options": {
             "temperature": 0.0,       
-            "num_predict": 200,   
+            "num_predict": 200, # En la beta aumenta a 400   
             "stop": ["Instrucciones"]
         }
     }
     try:
-        respuesta = requests.post(OLLAMA_URL, json=payload, timeout=60)
+        respuesta = requests.post(OLLAMA_URL, json=payload, timeout=60) # En la beta aumenta el timeout a 90
         
         if respuesta.status_code == 200:
             return respuesta.json().get("response", "").strip()
@@ -85,30 +85,6 @@ def llamada_ollama(prompt):
 def auditar_presupuesto(texto_completo_doc, valor_candidato):
     print(f"---- Obteniendo Presupuesto (Candidato Regex: {valor_candidato})...")
     
-    # palabras_clave_dinero = ["presupuesto base", "valor estimado", "importe neto", "precio del contrato", "cuantia", "lotes"]
-    # contexto_filtrado = obtener_contexto_relevante(texto_completo_doc, palabras_clave_dinero, ventana=1000)
-   
-    # if valor_candidato:
-    #     candidato_str = valor_candidato 
-    # else:
-    #     candidato_str= "null"
-
-    # prompt = f"""
-    # Eres un experto financiero. Extrae el PRESUPUESTO BASE (Sin Impuestos).
-    
-    # CANDIDATO REGEX: {candidato_str}
-    # CONTEXTO: '''{contexto_filtrado}'''
-    
-    # INSTRUCCIONES:
-    # 1. Prioriza el "Presupuesto Base de Licitacion" sobre el "Valor Estimado".
-    # 2. Si hay varios lotes, busca la SUMA TOTAL.
-    # 3. Responde SOLO con este JSON:
-    # {{
-    #     "monto": "100.000,00",
-    #     "razon": "Justificacion breve"
-    # }}
-    # """
-
     # Añadimos "IVA" y "Total" para que el LLM vea la diferencia
     palabras_clave_dinero = ["presupuesto base", "valor estimado", "importe neto", "excluido", "IVA", "base de licitacion"]
 
@@ -206,6 +182,27 @@ def procesar_documento(ruta):
         "plazo": "No encontrado"       
     }
 
+
+    # Este será el metadatos definitivo, ahora tienes que mejorar todo 
+    # datos = {
+    #     "archivo": nombre,
+    #     "expediente": "No encontrado",
+    #     "cpv": [],
+    #     "tramitacion": "Ordinaria",
+    #     "presupuesto_base_licitación": "No encontrado", #Deberia encontrar el precio base sin el IVA de este precio se calculará el IVA
+    #     "valor_estimado_contrato: "No encontrado", #Aquí es todo incluido el IVA
+    #     "iva": "No encontrado", # Pues eso, el IVA
+    #     "plazo_ejecucion": "No encontrado", # El tiempo en el que se debe hacer :D
+    #     "tiempo_prórroga": "No encontrado", # El tiempo extra que se da para terminar
+    #     "tipo_contrato": "No encontrado",
+    #     "procedimiento": "No encontrado",
+    #     "lotes": False,
+    #     "criterios_adjudicacion": "No encontrado",
+    #     "financiacion_europea": False,
+    #     "contrato_reservado": False
+    # }
+
+
     try:
         reader = pypdf.PdfReader(ruta)
         texto_completo = ""
@@ -219,22 +216,17 @@ def procesar_documento(ruta):
         
         # 1. EXPEDIENTE (Regex)
         expediente_encontrado = re.search(r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})", texto_limpio)
-        if expediente_encontrado: datos["expediente"] = expediente_encontrado.group(1)
+        if expediente_encontrado: 
+            datos["expediente"] = expediente_encontrado.group(1)
 
         # 2. TRAMITACION (Regex)
         if re.search(r"tramita.{0,30}urgente", texto_limpio, re.IGNORECASE):
             datos["tramitacion"] = "Urgente"
 
         # 3. CPV (Regex)
-        # cpv_encontrado = re.search(r"(\d{8})[\s\n-]*(\d)", texto_limpio)
-        # if cpv_encontrado:
-        #     datos["cpv"] = f"{cpv_encontrado.group(1)}-{cpv_encontrado.group(2)}"
-        cpv_encontrado = re.search(r"(?i)CPV.*?(\d{8})[-\s]*(\d)", texto_limpio)
-        if cpv_encontrado:
-            datos["cpv"] = f"{cpv_encontrado.group(1)}-{cpv_encontrado.group(2)}"
-        else:
-            # Plan B: Buscar solo el formato numérico si está muy aislado, pero es arriesgado
-            pass
+        cpvs_encontrados = re.findall(r"(?i)CPV.*?(\d{8})[-\s]*(\d)", texto_limpio)
+        if cpvs_encontrados:
+            datos["cpv"] = list(set([f"{match[0]}-{match[1]}" for match in cpvs_encontrados]))
 
         # 4. PRESUPUESTO (Regex + IA)
         
@@ -272,9 +264,7 @@ if __name__ == "__main__":
     for f in carpeta_datos.glob("*.pdf"):
         print(f"Analizando: {f.name}")
         resultados.append(procesar_documento(f))
-        
     
-        
     with open(ruta_final_json, "w", encoding="utf-8") as f:
         json.dump(resultados, f, indent=4, ensure_ascii=False)
         
