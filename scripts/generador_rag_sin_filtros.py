@@ -72,11 +72,7 @@ class BorradorPliego:
         self.secciones = {}
         if os.path.exists(self.archivo_respaldo):
             os.remove(self.archivo_respaldo)
-# VER ESE PROBLEMA CON LAS CADENAS: NO SE ARREGLAN SEGUN EL FEEDBACK DEL USUARIO SINO QUE HACE OTRA COSA.
-#######################################################################################################################################
-#######################################################################################################################################
-#######################################################################################################################################
-#######################################################################################################################################
+
 def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros=None):
     """Genera una seccion desde cero usando RAG estandar."""
     search_kwargs = {"k": 3}

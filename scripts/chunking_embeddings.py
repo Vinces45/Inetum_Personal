@@ -22,7 +22,7 @@ PROJECT_ROOT = BASE_DIR.parent
 DIR_PDFS_PCAP = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
 DIR_PDFS_PPT = PROJECT_ROOT / "datos" / "pdfs" / "ppt"
 DIR_JSON = PROJECT_ROOT / "datos" / "metadatos" / "metadatos.json"
-DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial_alpha"
+DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
 
 def extraer_id(nombre_archivo):
     match = re.match(r"^(\d+)_", nombre_archivo)
@@ -115,10 +115,26 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, mapa_meta):
                 }
                 
                 # Inyectar metadatos del JSON 
+                # for clave, valor in datos_json.items():
+                #     # Evitamos sobreescribir el 'archivo' original por el de la metadata (ej. PPT tomando nombre de PCAP)
+                #     if clave != "archivo": 
+                #         meta_final[clave] = str(valor)
+
+
+                # PARA HACER LA COMPARACIÓN CORRECTAMENTE DE LOS METADATOS
+                tipos_permitidos = (str, int, float, bool)
+                
                 for clave, valor in datos_json.items():
-                    # Evitamos sobreescribir el 'archivo' original por el de la metadata (ej. PPT tomando nombre de PCAP)
-                    if clave != "archivo": 
-                        meta_final[clave] = str(valor)
+                    if clave != "archivo" and valor is not None:
+                        # Si es una lista (ej. los CPV), lo pasamos a string separado por comas
+                        if isinstance(valor, list):
+                            meta_final[clave] = ", ".join(map(str, valor))
+                        # Si es un tipo primitivo valido para Chroma, lo guardamos tal cual
+                        elif isinstance(valor, tipos_permitidos):
+                            meta_final[clave] = valor
+                        # Por seguridad, cualquier otra cosa se pasa a texto
+                        else:
+                            meta_final[clave] = str(valor)
                 
                 doc = Document(page_content=texto_limpio, metadata=meta_final)
                 docs_lista.append(doc)
