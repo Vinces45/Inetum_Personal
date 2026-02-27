@@ -7,6 +7,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
+import fitz
 
 # ==========================================
 # 1. MICRO-ESQUEMAS PYDANTIC (Moldes)
@@ -111,13 +112,6 @@ def extraer_iva(texto_doc, llm):
     return res.resultado if res else None
 
 
-
-
-
-
-
-
-
 def extraer_plazo_ejecucion(texto_doc, llm):
     print("    - Extrayendo Plazo de Ejecucion...")
     contexto = obtener_contexto_relevante(texto_doc, ["plazo de ejecucion", "duracion", "meses"], 800)
@@ -129,6 +123,7 @@ def extraer_plazo_ejecucion(texto_doc, llm):
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
     return res.resultado if res else None
+
 
 def extraer_prorroga(texto_doc, llm):
     print("    - Extrayendo Prorroga...")
@@ -221,10 +216,16 @@ def procesar_documento(ruta, llm):
     datos_finales = {"archivo": nombre}
 
     try:
-        reader = pypdf.PdfReader(ruta)
-        texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
-        texto_limpio = limpiar_texto_basico(texto_completo)
-        
+        # reader = pypdf.PdfReader(ruta)
+        # texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
+        # texto_limpio = limpiar_texto_basico(texto_completo)
+
+        texto_completo = ""
+        with fitz.open(ruta) as doc:
+            for pagina in doc:
+                texto_completo += pagina.get_text("text") +"\n"  
+
+        texto_limpio = limpiar_texto_basico(texto_completo)      
         # 1. Regex (Determinista)
         exp = re.search(r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})", texto_limpio)
         if exp: datos_finales["expediente"] = exp.group(1)

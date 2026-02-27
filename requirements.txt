@@ -94,6 +94,7 @@ pydantic==2.12.5
 pydantic-settings==2.13.1
 pydantic_core==2.41.5
 Pygments==2.19.2
+PyMuPDF==1.27.1
 pypdf==6.7.0
 PyPika==0.51.1
 pyproject_hooks==1.2.0
