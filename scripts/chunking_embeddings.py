@@ -16,15 +16,13 @@ from tqdm import tqdm
 import time
 
 # --- CONFIGURACION DE RUTAS ---  
-
-
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent 
 
 DIR_PDFS_PCAP = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
 DIR_PDFS_PPT = PROJECT_ROOT / "datos" / "pdfs" / "ppt"
-DIR_JSON = PROJECT_ROOT / "datos" / "metadatos" / "metadatos_finales.json"
-DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
+DIR_JSON = PROJECT_ROOT / "datos" / "metadatos" / "metadatos.json"
+DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial_alpha"
 
 def extraer_id(nombre_archivo):
     match = re.match(r"^(\d+)_", nombre_archivo)
@@ -37,8 +35,6 @@ def extraer_id(nombre_archivo):
 def limpiar_texto(texto):
     if not texto:
         return ""
-    
-    # 1. Normalizar saltos de linea (Windows \r\n a Unix \n)
     texto = texto.replace('\r\n', '\n')
     
     # 2. Reducir multiples saltos de linea a maximo 2 (para marcar parrafos)
@@ -75,6 +71,7 @@ def cargar_diccionario_metadatos(ruta_json):
                 print(f"Aviso: No se pudo extraer ID de {nombre_archivo}")
                 
     return diccionario
+
 def cargar_y_procesar_documentos(dir_pcap, dir_ppt, mapa_meta):
     docs_lista = []
     
@@ -87,8 +84,12 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, mapa_meta):
 
     for archivo in archivos:
         es_pcap = "PCAP" in archivo.upper()
-        ruta_pdf = os.path.join(dir_pcap if es_pcap else dir_ppt, archivo)
-        tipo_archivo = "PCAP" if es_pcap else "PPT"
+        if es_pcap:
+            ruta_pdf = dir_pcap / archivo 
+            tipo_archivo = "PCAP"
+        else:
+            ruta_pdf = dir_ppt / archivo
+            tipo_archivo = "PPT"
         
         try:
             id_actual = extraer_id(archivo) 
@@ -107,13 +108,13 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, mapa_meta):
                     
                 # Creamos metadatos especificos para esta pagina
                 meta_final = {
-                    "source": archivo,
+                    "fuente": archivo,
                     "doc_id": id_actual if id_actual else "unknown",
                     "tipo_documento": tipo_archivo,
                     "pagina": pagina.metadata.get("page", 0) # Conservamos la pagina
                 }
                 
-                # Inyectar datos (Presupuesto, CPV, etc.) del JSON
+                # Inyectar metadatos del JSON 
                 for clave, valor in datos_json.items():
                     # Evitamos sobreescribir el 'archivo' original por el de la metadata (ej. PPT tomando nombre de PCAP)
                     if clave != "archivo": 
@@ -129,67 +130,8 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, mapa_meta):
             
     return docs_lista
 
-# def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_mapeo):
-#     docs_lista = []
-    
-#     if not os.path.exists(dir_ppt) or not os.path.exists(dir_pcap):
-#         return []
 
-#     archivos_pcap = [f for f in os.listdir(dir_pcap) if f.endswith(".pdf")]
-#     archivos_ppt = [f for f in os.listdir(dir_ppt) if f.endswith(".pdf")]
-#     archivos = archivos_pcap + archivos_ppt
-
-#     for archivo in archivos:
-#         if "PCAP" in archivo.upper():
-#             ruta_pdf = os.path.join(dir_pcap, archivo)
-#             tipo_archivo = "PCAP"
-#         else:
-#             ruta_pdf =os.path.join(dir_ppt, archivo)
-#             tipo_archivo = "PPT"
-        
-#         try:
-#             # 1. Extraer ID del archivo actual
-#             id_actual = extraer_id(archivo) 
-            
-#             # 2. Preparar Metadatos Base
-#             meta_final = {
-#                 "source": archivo,
-#                 "doc_id": id_actual if id_actual else "unknown"
-#             }
-            
-#             # 3. Detectar si es PCAP o PPT (para el tipo)
-#             meta_final["tipo_documento"] = tipo_archivo
-            
-#             # 4. BUSCAR EN EL DICCIONARIO POR ID
-#             # Aqui ocurre la magia: Si el mapa tiene la clave "01",
-#             # se la aplicara tanto al 01_PCAP como al 01_PPT automaticamente.
-#             if id_actual and id_actual in dicc_mapeo:
-#                 datos_json = dicc_mapeo[id_actual]
-                
-#                 # Inyectar datos (Presupuesto, CPV, etc.)
-#                 for clave, valor in datos_json.items():
-#                     meta_final[clave] = str(valor)
-                
-#                 print(f"-> {archivo} (ID: {id_actual}) enriquecido con metadatos.")
-#             else:
-#                 print(f"-> {archivo} (ID: {id_actual}) NO tiene metadatos en el JSON.")
-
-#             # 5. Cargar y Crear Documento
-#             loader = PyPDFLoader(ruta_pdf)
-#             paginas = loader.load()
-#             texto_completo = "\n".join([p.page_content for p in paginas])
-#             texto_limpio = limpiar_texto(texto_completo)
-            
-#             doc = Document(page_content=texto_limpio, metadata=meta_final)
-#             docs_lista.append(doc)
-            
-#         except Exception as e:
-#             print(f"ERROR procesando {archivo}: {e}")
-            
-#     return docs_lista
-
-
-def configurar_chunking_legal():
+def configurar_chunkeador():
     
     return RecursiveCharacterTextSplitter(
         separators=[
@@ -230,17 +172,17 @@ if __name__ == "__main__":
     
     # 1. Cargar metadatos del JSON
     print("1. Cargando metadatos...")
-    dicc_mapeodatos = cargar_diccionario_metadatos(DIR_JSON)
+    diccionario_metadatos = cargar_diccionario_metadatos(DIR_JSON)
     
     # 2. Cargar PDFs y fusionar con metadatos
     print("2. Leyendo PDFs...")
-    documentos_base = cargar_y_procesar_documentos(DIR_PDFS_PCAP, DIR_PDFS_PPT, dicc_mapeodatos)
+    documentos_base = cargar_y_procesar_documentos(DIR_PDFS_PCAP, DIR_PDFS_PPT, diccionario_metadatos)
    
 
-    # 3. CHUNKING (El paso crucial que pedias)
+    # 3. Configurar el chunky y hacer el trozeado
     print("3. Ejecutando Chunking Inteligente...")
-    splitter = configurar_chunking_legal()
-    chunks = splitter.split_documents(documentos_base)
+    chunky = configurar_chunkeador()
+    chunks = chunky.split_documents(documentos_base)
     
     print(f"   Originales: {len(documentos_base)} docs -> Generados: {len(chunks)} chunks.")
     
@@ -261,16 +203,16 @@ if __name__ == "__main__":
         collection_name="pliegos_oficiales"
     )
 
-    TAMANO_LOTE = 50 
-    print(f"\nIniciando guardado en ChromaDB por lotes de {TAMANO_LOTE}...")
+    TAMAÑO_LOTE = 50 
+    print(f"\nIniciando guardado en ChromaDB por lotes de {TAMAÑO_LOTE}...")
     
-    for i in tqdm(range(0, len(chunks), TAMANO_LOTE), desc="Progreso Embeddings"):
-        lote_chunks = chunks[i : i + TAMANO_LOTE]
+    for i in tqdm(range(0, len(chunks), TAMAÑO_LOTE), desc="Progreso Embeddings"):
+        lote_chunks = chunks[i : i + TAMAÑO_LOTE]
         try:
             # Asignar IDs unicos para evitar duplicados en reingestas futuras
-            ids = [f"{chunk.metadata['doc_id']}_p{chunk.metadata['pagina']}_c{idx}" for idx, chunk in enumerate(lote_chunks)] # Checkear esto porque no entiendo que hace buscar alguna forma que si entienda
+            # REVISAR POSIBLE BUG_ CON LOS IDS DE UN MISMO LOTE TODOS DEBEN DE TENER DISTINTO 
+            ids = [f"{chunk.metadata['doc_id']}_p{chunk.metadata['pagina']}_c{ idx+i }" for idx, chunk in enumerate(lote_chunks)] 
             vector_db.add_documents(documents=lote_chunks, ids=ids)
-        # Esta excepcion no se si es necesario lo es¿? y como funciona ¿?
         except Exception as e:
             for idx, chunk_individual in enumerate(lote_chunks):
                 try:
@@ -282,3 +224,5 @@ if __name__ == "__main__":
             
     print(f"\n--- PROCESO COMPLETADO ---")
     print(f"Base de datos guardada correctamente en: {DIR_DB}")
+
+

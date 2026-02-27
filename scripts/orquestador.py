@@ -2,43 +2,48 @@ import json
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-
-# Importamos tu motor RAG y el gestor de estado (BorradorPliego)
 from generador_rag import inicializar_bd, inicializar_llm, generar_seccion_nueva, corregir_seccion_existente, BorradorPliego
 
 def analizar_peticion_usuario(peticion, estado_documento):
-    """
-    Fase 1: Enrutador Inteligente
-    Evalua si el usuario quiere crear algo nuevo o modificar el borrador actual.
-    """
     print("\n[ORQUESTADOR] Analizando intencion del usuario...")
+    
+    # Llama 3 configurado para JSON
     llm_orquestador = ChatOllama(model="llama3", temperature=0.0, format="json")
     
-    # Le pasamos al LLM las secciones que ya existen para que sepa de que le habla el usuario
     secciones_existentes = list(estado_documento.secciones.keys())
     
+    # PROMPT MEJORADO: Más restrictivo y con todos tus filtros
     prompt_orquestador = """
-    Eres el Orquestador del sistema de pliegos del Gobierno de La Rioja.
-    Tu tarea es leer la peticion del usuario y generar UNICAMENTE un JSON valido.
+    Eres el Orquestador de una IA legal del Gobierno de La Rioja.
+    Tu UNICA tarea es analizar la peticion y devolver un objeto JSON valido.
+    NO escribas introducciones, NO escribas saludos, SOLO el JSON.
     
-    SECCIONES ACTUALMENTE EN EL BORRADOR: {secciones_actuales}
+    SECCIONES EN EL BORRADOR: {secciones_actuales}
     
-    REGLAS PARA EL JSON:
-    - "accion": Debe ser "crear" (si pide redactar algo nuevo) o "modificar" (si pide cambiar una seccion existente).
-    - "secciones_a_crear": Lista de nombres de secciones a generar (solo si accion es "crear").
-    - "seccion_a_modificar": Nombre de la seccion que quiere cambiar (solo si accion es "modificar").
-    - "feedback": Lo que el usuario quiere cambiar (solo si accion es "modificar").
-    - "filtros": Extrae "tipo_contrato" (Obras, Servicios o Suministros) y "tipo_documento" (PCAP o PPT). Usa null si no se mencionan.
+    REGLAS DE EXTRACCIÓN PARA EL JSON:
+    1. "accion": "crear" (para texto nuevo) o "modificar" (para cambiar el borrador).
+    2. "secciones_a_crear": Lista de nombres (solo si es crear).
+    3. "seccion_a_modificar": Nombre de la seccion (solo si es modificar).
+    4. "feedback": Instruccion de cambio (solo si es modificar).
+    5. "filtros": Extrae las condiciones legales mencionadas. SI NO SE MENCIONAN, USA null.
+       - "tipo_contrato": (Obras, Servicios o Suministros)
+       - "tipo_documento": (PCAP o PPT)
+       - "tramitacion": (Ordinaria, Urgente, Emergencia)
+       - "procedimiento": (Abierto, Menor, Negociado)
+       - "lotes": (true si menciona lotes, false si dice sin lotes)
 
     FORMATO EXACTO ESPERADO:
     {{
         "accion": "crear",
-        "secciones_a_crear": ["Objeto del contrato", "Penalidades"],
+        "secciones_a_crear": ["Objeto del contrato"],
         "seccion_a_modificar": null,
         "feedback": null,
         "filtros": {{
             "tipo_contrato": "Servicios",
-            "tipo_documento": "PCAP"
+            "tipo_documento": "PCAP",
+            "tramitacion": "Ordinaria",
+            "procedimiento": null,
+            "lotes": false
         }}
     }}
 
@@ -53,13 +58,13 @@ def analizar_peticion_usuario(peticion, estado_documento):
             "peticion": peticion, 
             "secciones_actuales": secciones_existentes
         })
-        
-        # Limpiamos los filtros null
-        if "filtros" in plan and plan["filtros"]:
+        # Limpieza de nulls
+        if plan.get("filtros"):
             filtros_limpios = {k: v for k, v in plan["filtros"].items() if v is not None}
             plan["filtros"] = filtros_limpios if filtros_limpios else None
             
         return plan
+        
     except Exception as e:
         print(f"[ERROR] El Orquestador fallo al crear el JSON: {e}")
         return None
