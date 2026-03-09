@@ -9,10 +9,6 @@ from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 import fitz
 
-# ==========================================
-# 1. MICRO-ESQUEMAS PYDANTIC (Moldes)
-# ==========================================
-
 class DatoTexto(BaseModel):
     resultado: Optional[str] = Field(default=None, description="El texto exacto extraido.")
 
@@ -22,25 +18,22 @@ class DatoEntero(BaseModel):
 class DatoBooleano(BaseModel):
     resultado: Optional[bool] = Field(default=None, description="True o False segun corresponda.")
 
-# ==========================================
-# 2. FUNCIONES DE UTILIDAD Y PARSEO
-# ==========================================
-
 def limpiar_texto_basico(texto):
     return " ".join(texto.split())
 
-def obtener_contexto_relevante(texto_completo, keywords, ventana=800):
+def obtener_contexto_relevante(texto_completo, lista_palabras_clave, ventana=800):
     texto_lower = texto_completo.lower()
     recortes = []
-    for keyword in keywords:
+    for palabra_clave in lista_palabras_clave:
         indice = 0
         while True:
-            indice = texto_lower.find(keyword, indice)
-            if indice == -1: break
+            indice = texto_lower.find(palabra_clave, indice)
+            if indice == -1: 
+                break
             inicio = max(0, indice - ventana)
             fin = min(len(texto_completo), indice + ventana)
             recortes.append(f"...[Contexto]...\n{texto_completo[inicio:fin]}\n")
-            indice += len(keyword)
+            indice += len(palabra_clave)
             
     if not recortes:
         return texto_completo[:3000]
@@ -50,29 +43,27 @@ def parsear_moneda_espanola(valor_str):
     if not valor_str or valor_str.lower() in ["null", "none"]:
         return None
     
-    # 1. Limpiamos simbolos y letras
     limpio = re.sub(r'[^\d.,]', '', str(valor_str))
     if not limpio: return None
 
-    # 2. Logica de parseo espanol (ej: 1.500.250,50 -> 1500250.50)
     if "," in limpio and "." in limpio:
-        limpio = limpio.replace(".", "")   # Quitamos el punto de los miles
-        limpio = limpio.replace(",", ".")  # Cambiamos la coma decimal por punto
+        limpio = limpio.replace(".", "")
+        limpio = limpio.replace(",", ".")
     elif "," in limpio:
-        limpio = limpio.replace(",", ".")  # Solo hay coma, asumimos que es decimal
-    
+        limpio = limpio.replace(",", ".")
+    elif "." in limpio:
+        partes = limpio.split(".")
+        if len(partes[-1]) == 3:
+            limpio = limpio.replace(".", "")
     try:
         return float(limpio)
     except ValueError:
         return None
 
-# ==========================================
-# 3. EXTRACCION ATOMICA (Una funcion por campo)
-# ==========================================
-
 def extraer_presupuesto_base(texto_doc, llm):
     print("    - Extrayendo Presupuesto Base...")
-    contexto = obtener_contexto_relevante(texto_doc, ["presupuesto base", "importe neto", "excluido"], 800)
+    palabras_clave = ["presupuesto base", "importe neto", "excluido"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
     llm_estructurado = llm.with_structured_output(DatoTexto)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -82,11 +73,12 @@ def extraer_presupuesto_base(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return parsear_moneda_espanola(res.resultado) if res else None
+   
 
 def extraer_valor_estimado(texto_doc, llm):
     print("    - Extrayendo Valor Estimado...")
-    contexto = obtener_contexto_relevante(texto_doc, ["valor estimado", "prorrogas", "total"], 800)
+    palabras_clave = ["valor estimado", "prorrogas", "total"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
     llm_estructurado = llm.with_structured_output(DatoTexto)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -95,11 +87,15 @@ def extraer_valor_estimado(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return parsear_moneda_espanola(res.resultado) if res else None
+    if res:
+        return parsear_moneda_espanola(res.resultado) 
+    else:
+        return None
 
 def extraer_iva(texto_doc, llm):
     print("    - Extrayendo IVA (Afinado)...")
-    contexto = obtener_contexto_relevante(texto_doc, ["iva", "tipo de iva", "porcentaje"], 600)
+    palabras_clave = ["iva", "tipo de iva", "porcentaje"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 600)
     llm_estructurado = llm.with_structured_output(DatoEntero)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -109,23 +105,34 @@ def extraer_iva(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
+
 
 def extraer_plazo_ejecucion(texto_doc, llm):
     print("    - Extrayendo Plazo de Ejecucion...")
-    contexto = obtener_contexto_relevante(texto_doc, ["plazo de ejecucion", "duracion", "meses"], 800)
+    palabras_clave = ["plazo de ejecucion", "duracion", "meses"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
     llm_estructurado = llm.with_structured_output(DatoEntero)
     
     prompt = ChatPromptTemplate.from_template("""
-    Extrae el PLAZO DE EJECUCION inicial expresado en meses (solo el numero entero).
+    Extrae el PLAZO DE EJECUCION inicial expresado en meses (solo el numero entero). 
+    Si aparece en años, pasalo al numero de meses equivalente. Si encuentras una fecha tal que así, de mayo a agosto, 
+    pasalo al número de meses equivalente.
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def extraer_prorroga(texto_doc, llm):
     print("    - Extrayendo Prorroga...")
-    contexto = obtener_contexto_relevante(texto_doc, ["prorroga", "meses"], 800)
+    palabras_clave = ["prorroga", "meses"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
     llm_estructurado = llm.with_structured_output(DatoEntero)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -134,11 +141,15 @@ def extraer_prorroga(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def extraer_tipo_contrato(texto_doc, llm):
     print("    - Extrayendo Tipo de Contrato (Afinado)...")
-    contexto = obtener_contexto_relevante(texto_doc, ["contrato de", "suministros", "obras", "servicios"], 500)
+    palabras_clave = ["contrato de", "suministros", "obras", "servicios"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 500)
     llm_estructurado = llm.with_structured_output(DatoTexto)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -150,11 +161,15 @@ def extraer_tipo_contrato(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def extraer_tramitacion(texto_doc, llm):
     print("    - Extrayendo Tramitacion...")
-    contexto = obtener_contexto_relevante(texto_doc, ["tramitacion ordinaria", "urgente", "emergencia"], 600)
+    palabras_clave = ["tramitacion ordinaria", "urgente", "emergencia"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
     llm_estructurado = llm.with_structured_output(DatoTexto)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -162,11 +177,15 @@ def extraer_tramitacion(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def extraer_procedimiento(texto_doc, llm):
     print("    - Extrayendo Procedimiento (Revision)...")
-    contexto = obtener_contexto_relevante(texto_doc, ["procedimiento abierto", "procedimiento negociado", "articulo 156", "articulo 168"], 800)
+    palabras_clave = ["procedimiento abierto", "procedimiento negociado", "articulo 156", "articulo 168"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave , 800)
     llm_estructurado = llm.with_structured_output(DatoTexto)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -177,11 +196,15 @@ def extraer_procedimiento(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def extraer_lotes(texto_doc, llm):
     print("    - Extrayendo Lotes...")
-    contexto = obtener_contexto_relevante(texto_doc, ["lotes", "division", "lote unico"], 600)
+    palabras_clave = ["lotes", "division", "lote unico"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
     llm_estructurado = llm.with_structured_output(DatoBooleano)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -189,11 +212,15 @@ def extraer_lotes(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def extraer_financiacion_europea(texto_doc, llm):
     print("    - Extrayendo Financiacion Europea...")
-    contexto = obtener_contexto_relevante(texto_doc, ["feder", "europea", "next generation", "mecanismo"], 600)
+    palabras_clave = ["feder", "europea", "next generation", "mecanismo"]
+    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 600)
     llm_estructurado = llm.with_structured_output(DatoBooleano)
     
     prompt = ChatPromptTemplate.from_template("""
@@ -201,11 +228,10 @@ def extraer_financiacion_europea(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    return res.resultado if res else None
-
-# ==========================================
-# 4. ORQUESTADOR PRINCIPAL
-# ==========================================
+    if res:
+        return res.resultado
+    else:
+        return None
 
 def procesar_documento(ruta, llm):
     nombre = os.path.basename(ruta)
@@ -214,24 +240,25 @@ def procesar_documento(ruta, llm):
     datos_finales = {"archivo": nombre}
 
     try:
-        reader = pypdf.PdfReader(ruta)
-        texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
-        texto_limpio = limpiar_texto_basico(texto_completo)
+        # reader = pypdf.PdfReader(ruta)
+        # texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
+        # texto_limpio = limpiar_texto_basico(texto_completo)
 
-        # texto_completo = ""
-        # with fitz.open(ruta) as doc:
-        #     for pagina in doc:
-        #         texto_completo += pagina.get_text("text") +"\n"  
+        texto_completo = ""
+        with fitz.open(ruta) as doc:
+            for pagina in doc:
+                texto_completo += pagina.get_text("text") +"\n"  
 
-        # texto_limpio = limpiar_texto_basico(texto_completo)      
-        # 1. Regex (Determinista)
-        exp = re.search(r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})", texto_limpio)
-        if exp: datos_finales["expediente"] = exp.group(1)
+        texto_limpio = limpiar_texto_basico(texto_completo)   
+
+        expediente = re.search(r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})", texto_limpio)
+        if expediente: 
+            datos_finales["expediente"] = expediente.group(1)
         
         cpvs = re.findall(r"(?i)CPV.*?(\d{8})[-\s]*(\d)", texto_limpio)
-        if cpvs: datos_finales["cpv"] = list(set([f"{match[0]}-{match[1]}" for match in cpvs]))
+        if cpvs: 
+            datos_finales["cpv"] = list(set([f"{match[0]}-{match[1]}" for match in cpvs]))
 
-        # 2. Funciones Atomicas (LLM)
         datos_finales["presupuesto_base_licitacion"] = extraer_presupuesto_base(texto_limpio, llm)
         datos_finales["valor_estimado_contrato"] = extraer_valor_estimado(texto_limpio, llm)
         datos_finales["iva_porcentaje"] = extraer_iva(texto_limpio, llm)
@@ -243,7 +270,6 @@ def procesar_documento(ruta, llm):
         datos_finales["lotes"] = extraer_lotes(texto_limpio, llm)
         datos_finales["financiacion_europea"] = extraer_financiacion_europea(texto_limpio, llm)
 
-        # Limpiar Nones
         datos_finales = {k: v for k, v in datos_finales.items() if v is not None}
 
     except Exception as e:
@@ -254,28 +280,25 @@ def procesar_documento(ruta, llm):
 if __name__ == "__main__":
     BASE_DIR = Path(__file__).resolve().parent                
     PROJECT_ROOT = BASE_DIR.parent           
+    DIR_PLIEGOS = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
+    DIR_JSON = PROJECT_ROOT / "datos" / "jsons" / "metadatos.jsonl"
     
-    carpeta_datos = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
-    ruta_final_json = PROJECT_ROOT / "datos" / "jsons" / "metadatos.json"
-    
-    ruta_final_json.parent.mkdir(parents=True, exist_ok=True)
-    
-    if not carpeta_datos.exists():
-        print(f"[ERROR] La carpeta {carpeta_datos} no existe.")
+    if not DIR_PLIEGOS.exists():
+        print(f"[ERROR] La carpeta {DIR_PLIEGOS} no existe.")
         exit(1)
         
-    archivos_pdf = list(carpeta_datos.glob("*.pdf"))
-    resultados = []
+    archivos_pdf = list(DIR_PLIEGOS.glob("*.pdf"))
     
     print("Inicializando modelo LLM...")
     llm_global = ChatOllama(model="llama3.1", temperature=0.0)
     
-    print(f"--- Iniciando Extraccion Atomica ({len(archivos_pdf)} documentos) ---")
-    for f in archivos_pdf:
-        resultados.append(procesar_documento(f, llm_global))
-    
-    with open(ruta_final_json, "w", encoding="utf-8") as f:
-        json.dump(resultados, f, indent=4, ensure_ascii=False)
-        
+    print(f"--- Iniciando Extraccion de ({len(archivos_pdf)} documentos) ---")
+
+    with open(DIR_JSON, "w", encoding="utf-8") as metadatos_finales:
+        for archivo in archivos_pdf:
+            diccionario_metadatos_documento = procesar_documento(archivo, llm_global)
+            json_metadatos = json.dumps(diccionario_metadatos_documento, ensure_ascii=False)
+            metadatos_finales.write(json_metadatos + "\n")
+
     print(f"\n--- Proceso finalizado ---")
-    print(f"Guardado en: {ruta_final_json}")
+    print(f"Guardado en: {DIR_JSON}")
