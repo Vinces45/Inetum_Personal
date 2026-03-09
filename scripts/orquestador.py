@@ -12,7 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 #     print("\n[ORQUESTADOR] Analizando intencion del usuario...")
     
 #     # Llama 3 configurado para JSON
-#     llm_orquestador = ChatOllama(model="llama3", temperature=0.0, format="json")
+#     llm_orquestador = ChatOllama(model="llama3.1", temperature=0.0, format="json")
     
 #     secciones_existentes = list(estado_documento.secciones.keys())
     
@@ -140,7 +140,7 @@ def analizar_peticion_usuario(peticion, estado_documento):
     print("\n[ORQUESTADOR] Analizando intencion del usuario con Pydantic...")
     
     # Instanciamos el modelo y le acoplamos el esquema Pydantic
-    llm = ChatOllama(model="llama3", temperature=0.0)
+    llm = ChatOllama(model="llama3.1", temperature=0.0)
     llm_estructurado = llm.with_structured_output(PlanOrquestador)
     
     secciones_existentes = list(estado_documento.secciones.keys())

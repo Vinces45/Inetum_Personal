@@ -1,0 +1,87 @@
+[
+  {
+    "pregunta": "¿Que tareas concretas tiene que hacer el personal adjudicado en las instalaciones del Gobierno?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 3
+  },
+  {
+    "pregunta": "¿Como se evalua el apartado cualitativo y cuantos puntos puedo conseguir como maximo si ofrezco cursos de 12 horas a mis trabajadores?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 7
+  },
+  {
+    "pregunta": "¿Que requisitos economicos y tecnicos se exigen a una empresa que tiene menos de 5 anos de antiguedad para poder presentarse a esta licitacion?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "Si la empresa comete una infraccion muy grave, ¿que porcentaje de descuento se le aplicara en la factura de ese mes?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 12
+  },
+  {
+    "pregunta": "¿Existe alguna obligacion de tipo medioambiental que la empresa deba cumplir obligatoriamente durante la prestacion del servicio?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 14
+  },
+  {
+    "pregunta": "¿Como se calcula la solvencia economica si decido presentarme y me adjudican varios lotes a la vez?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 12
+  },
+  {
+    "pregunta": "En caso de que mi oferta empate a puntos con la de otra empresa, y ambas tengamos plantillas de 15 personas, ¿cual es el primer criterio social que mirara la administracion para desempatar?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 17
+  },
+  {
+    "pregunta": "Si me retraso 4 dias habiles en entregar los productos quimicos en la finca de La Grajera, ¿como se clasifica la infraccion y que porcentaje de descuento me aplicaran en la factura?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 23
+  },
+  {
+    "pregunta": "¿Cual es el plazo maximo del que dispongo para entregar los pedidos solicitados por el Servicio de Investigacion Agraria?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 21
+  },
+  {
+    "pregunta": "¿Es obligatorio desglosar los costes directos e indirectos en mi oferta economica para esta compra de fertilizantes?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "¿Cual es el numero minimo de proyectos empresariales totales exigidos y cuantos se deben adscribir como minimo a cada nivel del programa piloto?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 7
+  },
+  {
+    "pregunta": "¿Cuantas horas en total se contemplan para las actividades de capacitacion en formato grupal y para el mentoring individualizado?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "Segun el desglose del presupuesto base de licitacion, ¿a cuanto ascienden exactamente los costes directos y el beneficio industrial?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 25
+  },
+  {
+    "pregunta": "¿Cual es el volumen anual de negocios minimo requerido al candidato para acreditar la solvencia economica y financiera?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 34
+  },
+  {
+    "pregunta": "¿Cuantas horas de dedicacion se exigen especificamente para la figura del Coordinador del Programa dentro de los requisitos del equipo humano?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 39
+  },
+  {
+    "pregunta": "Si el adjudicatario presta menos de 450 horas de mentoring, ¿como se califica la infraccion y que porcentaje de penalizacion se aplicara sobre el importe del contrato?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 51
+  },
+  {
+    "pregunta": "¿Cuales son las unicas tareas de este contrato que expresamente se permite que sean objeto de subcontratacion?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 64
+  }
+]

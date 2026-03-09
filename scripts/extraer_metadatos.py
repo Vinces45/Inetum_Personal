@@ -111,7 +111,6 @@ def extraer_iva(texto_doc, llm):
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
     return res.resultado if res else None
 
-
 def extraer_plazo_ejecucion(texto_doc, llm):
     print("    - Extrayendo Plazo de Ejecucion...")
     contexto = obtener_contexto_relevante(texto_doc, ["plazo de ejecucion", "duracion", "meses"], 800)
@@ -123,7 +122,6 @@ def extraer_plazo_ejecucion(texto_doc, llm):
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
     return res.resultado if res else None
-
 
 def extraer_prorroga(texto_doc, llm):
     print("    - Extrayendo Prorroga...")
@@ -216,16 +214,16 @@ def procesar_documento(ruta, llm):
     datos_finales = {"archivo": nombre}
 
     try:
-        # reader = pypdf.PdfReader(ruta)
-        # texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
-        # texto_limpio = limpiar_texto_basico(texto_completo)
+        reader = pypdf.PdfReader(ruta)
+        texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
+        texto_limpio = limpiar_texto_basico(texto_completo)
 
-        texto_completo = ""
-        with fitz.open(ruta) as doc:
-            for pagina in doc:
-                texto_completo += pagina.get_text("text") +"\n"  
+        # texto_completo = ""
+        # with fitz.open(ruta) as doc:
+        #     for pagina in doc:
+        #         texto_completo += pagina.get_text("text") +"\n"  
 
-        texto_limpio = limpiar_texto_basico(texto_completo)      
+        # texto_limpio = limpiar_texto_basico(texto_completo)      
         # 1. Regex (Determinista)
         exp = re.search(r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})", texto_limpio)
         if exp: datos_finales["expediente"] = exp.group(1)
@@ -258,7 +256,7 @@ if __name__ == "__main__":
     PROJECT_ROOT = BASE_DIR.parent           
     
     carpeta_datos = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
-    ruta_final_json = PROJECT_ROOT / "datos" / "metadatos" / "metadatos.json"
+    ruta_final_json = PROJECT_ROOT / "datos" / "jsons" / "metadatos.json"
     
     ruta_final_json.parent.mkdir(parents=True, exist_ok=True)
     

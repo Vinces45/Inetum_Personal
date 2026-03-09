@@ -1,0 +1,82 @@
+[
+  {
+    "pregunta": "¿Cual es la cantidad exacta en kilogramos y el precio unitario sin IVA requeridos para el producto Azufre Micronizado del lote de fungicidas?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 4
+  },
+  {
+    "pregunta": "¿Cual es el plazo maximo de entrega desde la solicitud de un pedido y quien asume los gastos de transporte de dicha entrega?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "¿Para que cultivo deben estar autorizados obligatoriamente todos los productos ofertados, a excepcion del Lambda Cihalotrin y el MCPA?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 9
+  },
+  {
+    "pregunta": "¿Que datos minimos debe contener obligatoriamente el albaran de entrega valorado para que el personal acepte la recepcion de los productos en la finca?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 9
+  },
+  {
+    "pregunta": "¿En cuantas iniciativas empresariales de enfoque tecnologico que no esten implantadas en La Rioja se debe impactar como minimo mediante las acciones de prospeccion?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 9
+  },
+  {
+    "pregunta": "¿Que dedicacion en horas se exige para el perfil de Responsable de la Fase de Incubacion y cuantos profesionales deben cubrir este puesto?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 17
+  },
+  {
+    "pregunta": "Para verificar el cumplimiento del contrato, ¿con que frecuencia debe presentar el adjudicatario los informes de progreso?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 21
+  },
+  {
+    "pregunta": "Segun el Componente 13 del Plan de Recuperacion, ¿cual es el porcentaje de contribucion a la transicion ecologica y a la transicion digital respectivamente?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 22
+  },
+  {
+    "pregunta": "En relacion con las necesidades de la planta primera, ¿para cuantos operarios se deben dotar los vestuarios y aseos del reten segun la normativa de seguridad y salud?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 2
+  },
+  {
+    "pregunta": "Segun el desglose del presupuesto base de licitacion, ¿que cantidad sin IVA corresponde exactamente a los honorarios por la Redaccion del Proyecto de Adecuacion?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 5
+  },
+  {
+    "pregunta": "¿Cual es el numero minimo de visitas a la obra que debe realizar el Director de Obra durante la realizacion de los trabajos?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 11
+  },
+  {
+    "pregunta": "¿Cual es la duracion minima en meses que se establece para el periodo de garantia del contrato tras la finalizacion y recepcion de las obras?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 17
+  },
+  {
+    "pregunta": "¿Cuantos nodos minimos basados en la arquitectura NVIDIA GB200 NVL4 y cuantas GPUs en total debe tener la solucion de computacion acelerada suministrada?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "¿Cual es el tiempo maximo de resolucion establecido para una incidencia clasificada con el nivel de severidad Alta?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 20
+  },
+  {
+    "pregunta": "Para el perfil de Especialista en Machine Learning, ¿cuantos anos de experiencia se exigen en el desarrollo e implementacion de modelos y que lenguajes de programacion debe conocer?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 28
+  },
+  {
+    "pregunta": "¿Cual es el plazo de garantia exigido especificamente para la documentacion generada o cualquier otro servicio que forme parte de la solucion?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 19
+  }
+]

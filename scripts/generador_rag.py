@@ -11,7 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent 
 DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
-DIR_RESPALDO = PROJECT_ROOT / "datos" / "respaldo" / "borrador_actual.json"
+DIR_RESPALDO = PROJECT_ROOT / "datos" / "borradores_pliego" / "borrador_actual.json"
 
 def inicializar_bd():
     print("[SISTEMA] Conectando a ChromaDB...")
@@ -24,7 +24,7 @@ def inicializar_bd():
 
 def inicializar_llm():
     print("[SISTEMA] Conectando a Llama 3...")
-    return ChatOllama(model="llama3", temperature=0.1)
+    return ChatOllama(model="llama3.1", temperature=0.1)
 
 class BorradorPliego:
     def __init__(self, archivo_respaldo=DIR_RESPALDO):
@@ -130,10 +130,19 @@ def corregir_seccion_existente(vector_db, llm, texto_actual, feedback_usuario, f
     if filtros:
         condiciones = []
         for clave, valor in filtros.items():
-            # Si el valor ya trae operadores de Chroma (ej: {"$gte": 100000})
             if isinstance(valor, dict):
                 condiciones.append({clave: valor})
-            # Si es un valor directo (ej: True, "PCAP", 50), aplicamos igualdad exacta
+            # Si es el presupuesto, creamos un rango de +- 20%
+            elif clave in ["presupuesto_base_licitacion", "valor_estimado_contrato"] and isinstance(valor, (int, float)):
+                margen_inferior = valor * 0.8
+                margen_superior = valor * 1.2
+                condiciones.append({
+                    clave: {
+                        "$gte": margen_inferior,
+                        "$lte": margen_superior
+                    }
+                })
+            # Para strings, booleanos y otros, usamos igualdad exacta
             else:
                 condiciones.append({clave: {"$eq": valor}})
                 

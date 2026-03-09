@@ -5,14 +5,14 @@
         "cpv": [
             "98341130-5"
         ],
-        "presupuesto_base_licitacion": 33473.44,
+        "presupuesto_base_licitacion": 27664.0,
         "valor_estimado_contrato": 56264.0,
         "iva_porcentaje": 21,
         "plazo_ejecucion_meses": 24,
         "tiempo_prorroga_meses": 24,
         "tipo_contrato": "Servicios",
         "tramitacion": "Ordinaria",
-        "procedimiento": "Abierto Simplificado",
+        "procedimiento": "Abierto",
         "lotes": false,
         "financiacion_europea": false
     },
@@ -21,16 +21,16 @@
         "expediente": "05-3-9.01-0088/2025",
         "cpv": [
             "24457000-2",
-            "24452000-7",
             "24440000-0",
+            "24452000-7",
             "24453000-4"
         ],
         "presupuesto_base_licitacion": 137539.49,
         "iva_porcentaje": 21,
         "plazo_ejecucion_meses": 10,
-        "tipo_contrato": "Servicios",
+        "tipo_contrato": "Suministros",
         "tramitacion": "Ordinaria",
-        "procedimiento": "Abierto Simplificado",
+        "procedimiento": "Abierto",
         "lotes": true,
         "financiacion_europea": true
     },
@@ -40,10 +40,10 @@
         "presupuesto_base_licitacion": 196785.41,
         "valor_estimado_contrato": 196785.41,
         "iva_porcentaje": 21,
-        "plazo_ejecucion_meses": 4,
+        "plazo_ejecucion_meses": 2,
         "tipo_contrato": "Servicios",
         "tramitacion": "Urgente",
-        "procedimiento": "Abierto Simplificado",
+        "procedimiento": "Abierto",
         "lotes": false,
         "financiacion_europea": true
     },
@@ -53,12 +53,13 @@
         "cpv": [
             "71000000-8"
         ],
-        "presupuesto_base_licitacion": 49000.61,
-        "valor_estimado_contrato": 41000.0,
+        "presupuesto_base_licitacion": 41000.00,
+        "valor_estimado_contrato": 410000.0,
+        "iva_porcentaje": 21,
         "plazo_ejecucion_meses": 11,
         "tipo_contrato": "Servicios",
         "tramitacion": "Urgente",
-        "procedimiento": "Abierto Simplificado",
+        "procedimiento": "Abierto",
         "lotes": true,
         "financiacion_europea": true
     },
@@ -70,10 +71,11 @@
         ],
         "presupuesto_base_licitacion": 2100000.0,
         "valor_estimado_contrato": 2100000.0,
+        "iva_porcentaje": 21,
         "plazo_ejecucion_meses": 12,
-        "tipo_contrato": "Suministros",
+        "tipo_contrato": "Servicios",
         "tramitacion": "Urgente",
-        "procedimiento": "Negociado sin publicidad",
+        "procedimiento": "Negociado",
         "lotes": false,
         "financiacion_europea": true
     }
