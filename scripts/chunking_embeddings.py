@@ -32,11 +32,13 @@ def extraer_id(nombre_archivo):
         return match.group(1)
     return None
 
-def generar_id_hash(texto):
-    texto_bytes = texto.encode("utf-8")
+def generar_id_hash(texto, metadatos):
+    id_doc = metadatos.get("doc_id", "sin_id")
+    pagina = metadatos.get("pagina", 0)
     
+    texto_base = f"{id_doc}_{pagina}_{texto}"
+    texto_bytes = texto_base.encode("utf-8")
     hash_obj = hashlib.sha256(texto_bytes)
-    
     return hash_obj.hexdigest()
 
 def limpiar_texto(texto):
@@ -104,7 +106,7 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_metadatos):
                         "fuente": archivo,
                         "doc_id": id_actual if id_actual else "unknown",
                         "tipo_documento": tipo_archivo,
-                        "pagina": pagina.number+1 #RECUERDA QUE EMPIEZA POR 0
+                        "pagina": pagina.number+1 
                     }
                     tipos_permitidos = (str, int, float, bool)
                     for clave, valor in datos_jsonl.items():
@@ -156,8 +158,8 @@ def configurar_chunkeador():
             r"\.\s", 
             r" "
         ],
-        chunk_size=1500, #1500 // 1000 // 800 // 600 
-        chunk_overlap=200, #200 // 150 // 120 // 100
+        chunk_size=600, #1500 // 1000 // 800 // 600 
+        chunk_overlap=100, #200 // 150 // 120 // 100
         length_function=len,
         is_separator_regex=True
     )
@@ -194,13 +196,13 @@ if __name__ == "__main__":
         lote_chunks = chunks[i : i + TAMAÑO_LOTE]
         
         try:
-            ids = [generar_id_hash(chunk.page_content) for chunk in lote_chunks] 
+            ids = [generar_id_hash(chunk.page_content, chunk.metadata) for chunk in lote_chunks] 
             vector_db.add_documents(documents=lote_chunks, ids=ids)
             
         except Exception as e:
             for chunk_individual in lote_chunks:
                 try:
-                    chunk_id = generar_id_hash(chunk_individual.page_content)
+                    chunk_id = generar_id_hash(chunk_individual.page_content, chunk_individual.metadata)
                     vector_db.add_documents(documents=[chunk_individual], ids=[chunk_id])
                     
                 except Exception as ex:

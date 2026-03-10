@@ -91,8 +91,7 @@ def evaluar_configuracion(documentos_base, size, overlap, space, ground_truth, m
       doc_id_obtenido = str(doc.metadata.get("doc_id", ""))
       pag_obtenida = doc.metadata.get("pagina", -1)
       
-      # MODIFICACION 3: Sumamos 1 a la pag_obtenida si PyPDFLoader empieza en 0
-      if doc_id_obtenido == id_esperado and (pag_obtenida + 1) == pag_esperada:
+      if doc_id_obtenido == id_esperado and (pag_obtenida == pag_esperada):
         rr_actual = 1.0 / (posicion + 1)
         break 
         

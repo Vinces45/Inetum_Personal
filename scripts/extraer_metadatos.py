@@ -73,7 +73,10 @@ def extraer_presupuesto_base(texto_doc, llm):
     CONTEXTO: '''{contexto}'''
     """)
     res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-   
+    if res:
+        return parsear_moneda_espanola(res.resultado) 
+    else:
+        return None
 
 def extraer_valor_estimado(texto_doc, llm):
     print("    - Extrayendo Valor Estimado...")
