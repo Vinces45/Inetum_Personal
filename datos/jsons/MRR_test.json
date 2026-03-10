@@ -1,82 +1,117 @@
 [
   {
-    "pregunta": "¿Cual es la cantidad exacta en kilogramos y el precio unitario sin IVA requeridos para el producto Azufre Micronizado del lote de fungicidas?",
+    "pregunta": "¿En que contenedores especificos se debe depositar el residuo de papel para cumplir con la condicion especial medioambiental?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 14,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Se considera causa de resolucion del contrato si la empresa no sustituye a un trabajador que esta de baja medica?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 18,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "Para presentar una oferta al Lote 4 de insecticidas, ¿que volumen anual de negocios se exige para poder acreditar la solvencia economica?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 4
+    "pagina_esperada": 12,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cual es el plazo maximo de entrega desde la solicitud de un pedido y quien asume los gastos de transporte de dicha entrega?",
+    "pregunta": "Si el suministrador se retrasa 3 dias habiles en la entrega, ¿como se clasifica este incumplimiento y que porcentaje exacto se le descontara de la factura?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 8
+    "pagina_esperada": 23,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Para que cultivo deben estar autorizados obligatoriamente todos los productos ofertados, a excepcion del Lambda Cihalotrin y el MCPA?",
+    "pregunta": "Para acreditar la solvencia economica, ¿que volumen anual de negocios se requiere en el mejor ejercicio de los ultimos tres anos?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 34,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "Si el adjudicatario presta menos de 450 horas de mentoring, ¿que porcentaje de penalizacion se aplicara sobre el precio de adjudicacion?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 51,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Donde se ubica exactamente el edificio objeto de la remodelacion y que superficie total tiene segun las necesidades administrativas?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 6,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿De que porcentaje es la penalidad si el adjudicatario incumple la condicion especial de ejecucion de tipo medioambiental?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 27,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Cual es el importe minimo exigido como volumen anual de negocios para acreditar la solvencia economica y financiera?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 20,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "Segun el Anexo I, ¿cuantos anos de experiencia se exigen para el perfil de Arquitecto Software y cual es su sueldo bruto anual de referencia?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 48,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "En caso de incumplimiento de las prescripciones, ¿cual es el plazo maximo para responder a las comunicaciones y que documento especifico se redactara para dejar constancia de la anomalia?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 4,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cual es la composicion o riqueza minima requerida para el herbicida sistemico descrito en el primer item del Lote 1?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 9
+    "pagina_esperada": 3,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "¿Que datos minimos debe contener obligatoriamente el albaran de entrega valorado para que el personal acepte la recepcion de los productos en la finca?",
+    "pregunta": "¿Cuales son los datos minimos obligatorios que deben aparecer reflejados en el albaran de entrega valorado que acompana al suministro?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 9
+    "pagina_esperada": 8,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "¿En cuantas iniciativas empresariales de enfoque tecnologico que no esten implantadas en La Rioja se debe impactar como minimo mediante las acciones de prospeccion?",
+    "pregunta": "Segun la evaluacion previa del componente 13, ¿que porcentaje de contribucion se asigna a la transicion ecologica y cual a la transicion digital?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 9
+    "pagina_esperada": 22,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "¿Que dedicacion en horas se exige para el perfil de Responsable de la Fase de Incubacion y cuantos profesionales deben cubrir este puesto?",
+    "pregunta": "¿Durante cuantos anos debe conservar el perceptor los registros y documentos relativos a la financiacion europea a partir del pago del saldo?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 17
+    "pagina_esperada": 23,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "Para verificar el cumplimiento del contrato, ¿con que frecuencia debe presentar el adjudicatario los informes de progreso?",
-    "doc_id_esperado": "03",
-    "pagina_esperada": 21
-  },
-  {
-    "pregunta": "Segun el Componente 13 del Plan de Recuperacion, ¿cual es el porcentaje de contribucion a la transicion ecologica y a la transicion digital respectivamente?",
-    "doc_id_esperado": "03",
-    "pagina_esperada": 22
-  },
-  {
-    "pregunta": "En relacion con las necesidades de la planta primera, ¿para cuantos operarios se deben dotar los vestuarios y aseos del reten segun la normativa de seguridad y salud?",
+    "pregunta": "¿Que documento especifico se debe entregar antes de la firma del acta de recepcion de las obras que incluya las mediciones realmente ejecutadas?",
     "doc_id_esperado": "04",
-    "pagina_esperada": 2
+    "pagina_esperada": 16,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "Segun el desglose del presupuesto base de licitacion, ¿que cantidad sin IVA corresponde exactamente a los honorarios por la Redaccion del Proyecto de Adecuacion?",
+    "pregunta": "¿Cual es la duracion minima exigida para el periodo de garantia tras la recepcion de la obra a plena satisfaccion?",
     "doc_id_esperado": "04",
-    "pagina_esperada": 5
+    "pagina_esperada": 17,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "¿Cual es el numero minimo de visitas a la obra que debe realizar el Director de Obra durante la realizacion de los trabajos?",
-    "doc_id_esperado": "04",
-    "pagina_esperada": 11
-  },
-  {
-    "pregunta": "¿Cual es la duracion minima en meses que se establece para el periodo de garantia del contrato tras la finalizacion y recepcion de las obras?",
-    "doc_id_esperado": "04",
-    "pagina_esperada": 17
-  },
-  {
-    "pregunta": "¿Cuantos nodos minimos basados en la arquitectura NVIDIA GB200 NVL4 y cuantas GPUs en total debe tener la solucion de computacion acelerada suministrada?",
+    "pregunta": "¿Con cuanta antelacion aproximada debe facilitar el Responsable de Proyecto el orden del dia antes de la celebracion del Comite de Seguimiento?",
     "doc_id_esperado": "05",
-    "pagina_esperada": 8
+    "pagina_esperada": 38,
+    "tipo_esperado": "PPT"
   },
   {
-    "pregunta": "¿Cual es el tiempo maximo de resolucion establecido para una incidencia clasificada con el nivel de severidad Alta?",
+    "pregunta": "Salvo excepciones justificadas, ¿cual es el plazo maximo en dias laborables del que dispone la empresa para presentar la documentacion solicitada?",
     "doc_id_esperado": "05",
-    "pagina_esperada": 20
-  },
-  {
-    "pregunta": "Para el perfil de Especialista en Machine Learning, ¿cuantos anos de experiencia se exigen en el desarrollo e implementacion de modelos y que lenguajes de programacion debe conocer?",
-    "doc_id_esperado": "05",
-    "pagina_esperada": 28
-  },
-  {
-    "pregunta": "¿Cual es el plazo de garantia exigido especificamente para la documentacion generada o cualquier otro servicio que forme parte de la solucion?",
-    "doc_id_esperado": "05",
-    "pagina_esperada": 19
+    "pagina_esperada": 40,
+    "tipo_esperado": "PPT"
   }
+
 ]

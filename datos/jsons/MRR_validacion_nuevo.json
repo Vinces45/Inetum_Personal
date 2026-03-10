@@ -1,0 +1,177 @@
+[
+  {
+    "pregunta": "¿Con que CSV fue sellado electronicamente el documento por la Presidenta ADER Belinda Leon Fernandez?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 37
+  },
+  {
+    "pregunta": "¿El presente contrato implica o no el acceso del contratista a datos de caracter personal segun el apartado de datos de caracter personal?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 66
+  },
+  {
+    "pregunta": "¿Que elementos o productos debe entregar la empresa adjudicataria como consecuencia de la subsanacion de fallos o documentacion incompleta?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 16
+  },
+  {
+    "pregunta": "¿En que plazo exacto debe comunicar la empresa el nombre, apellidos y numero de telefono movil del encargado tras la formalizacion del contrato?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 33
+  },
+  {
+    "pregunta": "¿De que repositorio central proviene la copia fidedigna del documento electronico?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 67
+  },
+  {
+    "pregunta": "Segun las otras obligaciones especificas del contrato, ¿de que normativas en materia de trabajo y medioambiente se responsabilizara la empresa adjudicataria?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 7
+  },
+  {
+    "pregunta": "¿Que declaracion especifica tienen la obligacion de cumplimentar todos los intervinientes en las diferentes fases del contrato?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 1
+  },
+  {
+    "pregunta": "¿Cual es el Reglamento exacto de la Union Europea de 2016 relativo a la proteccion de las personas fisicas y el tratamiento de datos personales que debe cumplir el adjudicatario?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 44
+  },
+  {
+    "pregunta": "¿A que corresponden exactamente los entregables o hitos E12, E14 y E15 requeridos en el proyecto?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 22
+  },
+  {
+    "pregunta": "¿Cual es el presupuesto base de licitacion y el numero de horas estipuladas especificamente para la anualidad del año 2026?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 5
+  },
+  {
+    "pregunta": "¿Que numero de texto aislado aparece en el fragmento de la pagina 1?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 1
+  },
+  {
+    "pregunta": "¿Como debe indicarse el importe a abonar en concepto de Impuesto sobre el Valor Añadido dentro del precio del contrato?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 9
+  },
+  {
+    "pregunta": "¿Cual es la formula matematica exacta estipulada para valorar el precio del servicio bajo los criterios automaticos?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 27
+  },
+  {
+    "pregunta": "¿Cual es el motivo principal por el que se resuelve acudir al procedimiento negociado sin publicidad segun el articulo 168.a.1 de la LCSP?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 12
+  },
+  {
+    "pregunta": "¿En este contrato se determinan tareas criticas que no podran ser objeto de subcontratacion o no existen dichas tareas?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 42
+  },
+  {
+    "pregunta": "¿En que cuatro ejes principales se sustenta el Plan de Recuperacion, Transformacion y Resiliencia aprobado el 13 de julio de 2021?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 2
+  },
+  {
+    "pregunta": "¿A que eventos concretos por cada nivel corresponden los Demo Days y Venture Days mencionados en las actividades de atraccion?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 7
+  },
+  {
+    "pregunta": "¿Cuantas horas totales y que titulacion minima se exige para el perfil del Responsable de la Fase de Escalado?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 16
+  },
+  {
+    "pregunta": "¿Mediante que documento concreto se efectuara la constatacion del cumplimiento de la totalidad de los suministros y prestaciones a satisfaccion de la Fundacion?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 38
+  },
+  {
+    "pregunta": "En el caso de que se adjudiquen varios lotes a un mismo licitador, ¿el pliego indica que cada lote se considerara un contrato independiente o se agrupan en un solo contrato?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 19
+  },
+  {
+    "pregunta": "¿Donde esta situado exactamente el centro de trabajo de la Agencia de Desarrollo Economico de La Rioja para el servicio de apoyo a conserjeria?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 0
+  },
+  {
+    "pregunta": "¿A que ubicaciones se esta llevando el segundo vehiculo del reten y el material de suministro debido al reducido tamaño del garaje actual?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 0
+  },
+  {
+    "pregunta": "¿Que denominacion de modelo se menciona al principio del documento oficial?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 0
+  },
+  {
+    "pregunta": "¿Que principio de proteccion medioambiental, conocido por sus siglas en ingles DNSH, debe garantizar el contratista que se cumple plenamente?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 21
+  },
+  {
+    "pregunta": "¿Se establecen condiciones adicionales para la cesion a las ya previstas en el articulo 214.2 de la LCSP?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 33
+  },
+  {
+    "pregunta": "¿Que numero aparece como texto residual en la pagina 12 del documento?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 12
+  },
+  {
+    "pregunta": "¿Cual es el objetivo principal de la bateria de iniciativas a diseñar y ejecutar en el marco del proyecto TECH FABLAB?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 5
+  },
+  {
+    "pregunta": "¿Quien es la Secretaria General Tecnica que sella electronicamente el documento el dia 07/11/2025?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 7
+  },
+  {
+    "pregunta": "Bajo la responsabilidad del contratista, ¿en que situaciones excepcionales pueden concluirse los subcontratos sin necesidad de dejar transcurrir el plazo de veinte dias?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 30
+  },
+  {
+    "pregunta": "¿Cual es el numero de horas asignadas especificamente para la coordinacion y supervision a cargo del Responsable de la Fase de Ideacion?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 16
+  },
+  {
+    "pregunta": "¿Que informacion deben tener identificada los subcontratistas en la oferta para que se aplique el regimen excepcional de urgencia en el plazo de veinte dias?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 64
+  },
+  {
+    "pregunta": "¿Con que antelacion aproximada debe el Responsable de Proyecto facilitar el orden del dia y el Informe de Seguimiento antes de una celebracion o reunion?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 37
+  },
+  {
+    "pregunta": "¿Conforme a que anexo y a que Real Decreto especifico seran exigibles las medidas y refuerzos de seguridad minimos aplicables a los sistemas de informacion?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 38
+  },
+  {
+    "pregunta": "¿Cual es el importe exacto previsto para las anualidades del ejercicio 2025 y bajo que partida presupuestaria se imputa?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "¿En que tipo de entorno especifico se requiere que el personal tenga amplios conocimientos y experiencia en la arquitectura de despliegue de servicios software?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 25
+  }
+]

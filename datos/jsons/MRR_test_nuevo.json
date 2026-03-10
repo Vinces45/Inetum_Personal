@@ -1,0 +1,82 @@
+[
+  {
+    "pregunta": "¿Cual es el importe minimo exigido como volumen anual de negocios dentro de las condiciones de solvencia economica y financiera?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 7
+  },
+  {
+    "pregunta": "¿Quien es el Consejero que sella electronicamente el documento el dia 15/12/2025 a las 08:20:36?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 2
+  },
+  {
+    "pregunta": "¿Cual es el objetivo principal del proyecto TECH FABLAB mencionado en la definicion del objeto del contrato?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 5
+  },
+  {
+    "pregunta": "¿El compromiso de adscripcion de medios tiene caracter de obligacion esencial y que consecuencia especifica tiene su incumplimiento?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 17
+  },
+  {
+    "pregunta": "¿Que unidad especifica es la encargada del seguimiento y ejecucion ordinaria del contrato segun los datos de contacto del organo destinatario?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 5
+  },
+  {
+    "pregunta": "¿Que informacion minima debe contener la lista de riesgos detectados que la empresa adjudicataria debe proponer como parte de sus tareas?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 40
+  },
+  {
+    "pregunta": "En el caso de licitacion con lotes, si un solo licitador resulta adjudicatario de varios, ¿como se calcula el nivel de solvencia que debe acreditar?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 34
+  },
+  {
+    "pregunta": "¿Que necesidad tecnologica concreta comprende el objeto de contratacion respecto a proyectos emergentes de Inteligencia Artificial?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 6
+  },
+  {
+    "pregunta": "¿A que pagina web dirige la direccion de verificacion del CSV N9PNZUHUH8KHWS6 sellado por el Consejero Alfonso Dominguez Simon?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 6
+  },
+  {
+    "pregunta": "¿A que tipo de personas o entidades se pretende dar acceso para fomentar el capital relacional del adjudicatario?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 13
+  },
+  {
+    "pregunta": "En contratos financiados con el Mecanismo de Recuperacion y Resiliencia, ¿que principio abreviado como DNSH debe garantizar el contratista?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 38
+  },
+  {
+    "pregunta": "¿El contrato tiene o no por objeto el desarrollo o la puesta a disposicion de productos protegidos por un derecho de propiedad intelectual o industrial?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 34
+  },
+  {
+    "pregunta": "De cara a la evaluacion del programa piloto, ¿cuantas hojas de ruta personalizadas se exigen para cada negocio incluido en la fase de escalado?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 19
+  },
+  {
+    "pregunta": "¿A que tipo de red especifica se conectara la unidad CDU ubicada en el rack del centro de datos?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 8
+  },
+  {
+    "pregunta": "¿Que Ministerio u Orden habilita al organo de contratacion a solicitar la informacion de titularidad real a los licitadores participantes si la AEAT no dispone de ella?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 1
+  },
+  {
+    "pregunta": "En el nivel de capacitacion grupal, ¿cuantas horas totales se consignan y que tematicas de formacion se proponen?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 10
+  }
+]

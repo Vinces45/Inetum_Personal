@@ -1,87 +1,242 @@
 [
   {
-    "pregunta": "¿Que tareas concretas tiene que hacer el personal adjudicado en las instalaciones del Gobierno?",
+    "pregunta": "¿Donde se prestaran exactamente los servicios de conserjeria objeto de este contrato?",
     "doc_id_esperado": "01",
-    "pagina_esperada": 3
+    "pagina_esperada": 3,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Como se evalua el apartado cualitativo y cuantos puntos puedo conseguir como maximo si ofrezco cursos de 12 horas a mis trabajadores?",
+    "pregunta": "¿Cual es el presupuesto base de licitacion total incluyendo el importe del IVA?",
     "doc_id_esperado": "01",
-    "pagina_esperada": 7
+    "pagina_esperada": 4,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Que requisitos economicos y tecnicos se exigen a una empresa que tiene menos de 5 anos de antiguedad para poder presentarse a esta licitacion?",
+    "pregunta": "¿Cuantos puntos obtiene una empresa en el apartado cualitativo si ofrece 12 horas anuales de formacion a sus trabajadores?",
     "doc_id_esperado": "01",
-    "pagina_esperada": 8
+    "pagina_esperada": 7,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "Si la empresa comete una infraccion muy grave, ¿que porcentaje de descuento se le aplicara en la factura de ese mes?",
+    "pregunta": "Si una empresa tiene 3 anos de antiguedad, ¿que tamano de plantilla necesita acreditar para cumplir con la solvencia requerida?",
     "doc_id_esperado": "01",
-    "pagina_esperada": 12
+    "pagina_esperada": 8,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Existe alguna obligacion de tipo medioambiental que la empresa deba cumplir obligatoriamente durante la prestacion del servicio?",
+    "pregunta": "¿Que porcentaje de descuento se aplica en la factura mensual si el contratista comete una infraccion calificada como muy grave?",
     "doc_id_esperado": "01",
-    "pagina_esperada": 14
+    "pagina_esperada": 12,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Como se calcula la solvencia economica si decido presentarme y me adjudican varios lotes a la vez?",
+    "pregunta": "¿Cual es el objeto principal de este contrato para las fincas de La Grajera y Valdegon?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 12
+    "pagina_esperada": 5,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "En caso de que mi oferta empate a puntos con la de otra empresa, y ambas tengamos plantillas de 15 personas, ¿cual es el primer criterio social que mirara la administracion para desempatar?",
+    "pregunta": "¿Cual es el presupuesto base de licitacion exacto, con IVA incluido, destinado especificamente al Lote 2 de fertilizantes?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 17
+    "pagina_esperada": 7,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "Si me retraso 4 dias habiles en entregar los productos quimicos en la finca de La Grajera, ¿como se clasifica la infraccion y que porcentaje de descuento me aplicaran en la factura?",
+    "pregunta": "Si dos empresas empatan a puntos, ¿cual es el segundo criterio social que aplicara la Administracion para desempatar si ambas tienen mas de 10 trabajadores?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 23
+    "pagina_esperada": 17,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cual es el plazo maximo del que dispongo para entregar los pedidos solicitados por el Servicio de Investigacion Agraria?",
+    "pregunta": "¿Cual es el plazo maximo del que dispone la empresa adjudicataria para entregar los productos desde que el Servicio de Investigacion Agraria realiza la solicitud?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 21
+    "pagina_esperada": 21,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Es obligatorio desglosar los costes directos e indirectos en mi oferta economica para esta compra de fertilizantes?",
+    "pregunta": "¿Cuantos incumplimientos muy graves de suministro se necesitan para que se considere reiteracion y sea causa directa de resolucion del contrato?",
     "doc_id_esperado": "02",
-    "pagina_esperada": 8
+    "pagina_esperada": 30,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cual es el numero minimo de proyectos empresariales totales exigidos y cuantos se deben adscribir como minimo a cada nivel del programa piloto?",
+    "pregunta": "¿Cual es el numero minimo de proyectos empresariales que deben participar en el programa piloto segun el objeto del contrato?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 7
+    "pagina_esperada": 7,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cuantas horas en total se contemplan para las actividades de capacitacion en formato grupal y para el mentoring individualizado?",
+    "pregunta": "¿Cuantas horas de mentoring individualizado se deben prestar como minimo para los proyectos de Nivel 2?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 8
+    "pagina_esperada": 8,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "Segun el desglose del presupuesto base de licitacion, ¿a cuanto ascienden exactamente los costes directos y el beneficio industrial?",
+    "pregunta": "Segun el desglose del presupuesto, ¿a cuanto asciende el beneficio industrial y los gastos generales?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 25
+    "pagina_esperada": 25,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cual es el volumen anual de negocios minimo requerido al candidato para acreditar la solvencia economica y financiera?",
+    "pregunta": "¿Que titulacion universitaria y cuantos anos de experiencia se exigen especificamente para el perfil de Coordinador del Programa?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 34
+    "pagina_esperada": 39,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cuantas horas de dedicacion se exigen especificamente para la figura del Coordinador del Programa dentro de los requisitos del equipo humano?",
+    "pregunta": "¿Cuales son las dos unicas tareas del contrato que se pueden subcontratar de forma expresa?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 39
+    "pagina_esperada": 64,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "Si el adjudicatario presta menos de 450 horas de mentoring, ¿como se califica la infraccion y que porcentaje de penalizacion se aplicara sobre el importe del contrato?",
-    "doc_id_esperado": "03",
-    "pagina_esperada": 51
+    "pregunta": "¿Cual es el presupuesto base de licitacion total, IVA incluido, para la redaccion del proyecto y direccion de obras?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 9,
+    "tipo_esperado": "PCAP"
   },
   {
-    "pregunta": "¿Cuales son las unicas tareas de este contrato que expresamente se permite que sean objeto de subcontratacion?",
+    "pregunta": "¿Que fondo de la Union Europea cofinancia este contrato y en que porcentaje exacto lo hace?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 9,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Cual es el plazo total de ejecucion del contrato y cuantos meses corresponden especificamente a la Fase 1?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 9,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "Para el Lote 1, ¿esta permitido que una misma persona ejerza de Director de Obra y Director de Ejecucion de forma simultanea?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 17,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Quien ha sido designado como responsable de este contrato y que cargo ocupa en la Administracion?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 5,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿A cuanto asciende el valor estimado del contrato sin IVA y el presupuesto base de licitacion con IVA incluido para esta incubadora de IA?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 9,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Cual es la fecha limite establecida para el plazo total de ejecucion de este contrato?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 11,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "En los criterios tecnicos cuantificables de forma automatica, ¿cuantos puntos se otorgan por cada nodo adicional ofertado sobre el valor base de doce nodos?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 19,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Que porcentaje del importe de adjudicacion corresponde al pago del Hito 1 relativo al diseno y planificacion?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 31,
+    "tipo_esperado": "PCAP"
+  },
+  {
+    "pregunta": "¿Cuales son las tareas especificas de apoyo que debe realizar el personal relacionadas con las impresoras y el reparto de documentacion?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 1,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "Segun la tabla de medios personales subrogables, ¿cual es la fecha de antiguedad y el salario bruto exacto del trabajador con categoria de Auxiliar?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 2,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cual es el horario habitual de prestacion del servicio de lunes a viernes y cual es la duracion inicial del contrato en meses?",
+    "doc_id_esperado": "01",
+    "pagina_esperada": 3,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cuales son las dos fincas institucionales exactas donde el adjudicatario debe realizar la entrega de los productos?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 2,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿En que tipo de envases y capacidades maximas se exige que se suministre el Lote 2 correspondiente a los fertilizantes?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 4,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "Si el personal de la finca detecta una alteracion en un producto fungicida durante la recepcion, ¿quien asume los costes de devolucion del producto rechazado?",
+    "doc_id_esperado": "02",
+    "pagina_esperada": 8,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cuantas horas de dedicacion en total se establecen obligatoriamente para la posicion de Responsable de Servicios de Apoyo a la Gestion?",
     "doc_id_esperado": "03",
-    "pagina_esperada": 64
+    "pagina_esperada": 18,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "Para la etapa de escalado, ¿cuantas horas de mentoring individualizado se deben consignar como minimo para cada proyecto empresarial?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 16,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "En las comunicaciones rutinarias entre el contratista y el responsable del contrato, ¿cual es el plazo maximo permitido para emitir una respuesta?",
+    "doc_id_esperado": "03",
+    "pagina_esperada": 21,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cual es el numero minimo de visitas de obra que debe realizar la Direccion Facultativa segun sus funciones?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 13,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿De cuantos dias habiles dispone la Direccion Facultativa para dar su conformidad a una variacion del calendario propuesta por el adjudicatario?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 14,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Que dia de cada mes, como maximo, debe entregar la Direccion Facultativa el borrador de la relacion valorada de la obra ejecutada?",
+    "doc_id_esperado": "04",
+    "pagina_esperada": 14,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cuales son los dos roles principales que la empresa adjudicataria debe designar obligatoriamente como interlocutores ante la Fundacion?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 36,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "Para cumplir con el principio DNSH, ¿con que directiva europea exacta deben cumplir los equipos informaticos respecto a los requisitos de diseno ecologico?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 37,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿En que idioma deben ser entregados todos los documentos, informes y diagramas generados durante el desarrollo del contrato?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 40,
+    "tipo_esperado": "PPT"
+  },
+  {
+    "pregunta": "¿Cual es el limite maximo de paginas permitido para el documento de la propuesta tecnica y que tamaño de letra especifico se exige?",
+    "doc_id_esperado": "05",
+    "pagina_esperada": 44,
+    "tipo_esperado": "PPT"
   }
 ]
