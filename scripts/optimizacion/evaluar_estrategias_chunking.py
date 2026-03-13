@@ -7,8 +7,8 @@ from tqdm import tqdm
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
-from chunking_embeddings import cargar_y_procesar_documentos as procesar_v1
-from chunking_embeddings import configurar_chunkeador as chunkeador_v1
+from scripts.preprocesamiento.chunking_embeddings import cargar_y_procesar_documentos as procesar_v1
+from scripts.preprocesamiento.chunking_embeddings import configurar_chunkeador as chunkeador_v1
 
 from chunking_embeddings_markdown import procesar_documentos_y_capa_semantica as procesar_v2
 from chunking_embeddings_markdown import configurar_splitters as chunkeador_v2

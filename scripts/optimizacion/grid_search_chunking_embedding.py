@@ -11,7 +11,7 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
-from chunking_embeddings import cargar_diccionario_metadatos, cargar_y_procesar_documentos
+from scripts.preprocesamiento.chunking_embeddings import cargar_diccionario_metadatos, cargar_y_procesar_documentos
 
 # --- RUTAS ---
 BASE_DIR = Path(__file__).resolve().parent

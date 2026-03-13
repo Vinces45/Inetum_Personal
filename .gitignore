@@ -1,4 +1,14 @@
+# Entornos virtuales
 env_tfg/
+
+# Cache y archivos compilados de Python
 __pycache__/
 *.pyc
+
+# Configuraciones del editor
 .vscode/
+
+# Archivos temporales
+datos/borradores_pliego/borrador_actual.json
+
+

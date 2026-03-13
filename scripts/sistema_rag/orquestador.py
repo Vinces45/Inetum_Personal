@@ -1,11 +1,13 @@
 import json
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
-from generador_rag import inicializar_bd, inicializar_llm, generar_seccion_nueva, corregir_seccion_existente, BorradorPliego
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
+
+from scripts.sistema_rag.generador_rag import inicializar_bd, inicializar_llm, generar_seccion_nueva, corregir_seccion_existente
+from scripts.modelo.pliego import BorradorPliego
 
 class FiltrosMetadatos(BaseModel):
     presupuesto_base_licitacion: Optional[float] = Field(
@@ -72,13 +74,12 @@ class PlanOrquestador(BaseModel):
 def analizar_peticion_usuario(peticion, estado_documento):
     print("\n[ORQUESTADOR] Analizando intencion del usuario con Pydantic...")
     
-    # Instanciamos el modelo y le acoplamos el esquema Pydantic
     llm = ChatOllama(model="llama3.1", temperature=0.0)
     llm_estructurado = llm.with_structured_output(PlanOrquestador)
     
     secciones_existentes = list(estado_documento.secciones.keys())
     
-    # El prompt ahora es muchisimo mas limpio gracias a Pydantic
+    # SERA NECESARIO MODIFICARLO PARA QUE TENGA EN CUENTA LAS NUEVAS FUNCIONALIDADES
     prompt_orquestador = """
     Eres el Orquestador de una IA legal del Gobierno de La Rioja.
     Analiza la peticion del usuario y extrae la informacion solicitada.

@@ -17,7 +17,6 @@ def generar_muestras_para_json(cantidad_muestras=5):
         collection_name="pliegos_oficiales" 
     )
     
-    # Extraemos todos los documentos de la BD
     datos_db = db.get()
     ids = datos_db['ids']
     documentos = datos_db['documents']
@@ -27,7 +26,6 @@ def generar_muestras_para_json(cantidad_muestras=5):
         print("La base de datos esta vacia. Ejecuta primero la ingesta.")
         return
         
-    # Seleccionamos indices aleatorios
     indices_aleatorios = random.sample(range(len(ids)), min(cantidad_muestras, len(ids)))
     
     print("\nLee estos fragmentos y crea una pregunta especifica para cada uno:\n")

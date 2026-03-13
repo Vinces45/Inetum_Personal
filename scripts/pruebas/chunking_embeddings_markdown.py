@@ -13,7 +13,6 @@ from langchain_core.documents import Document
 
 from tqdm import tqdm
 
-# --- CONFIGURACION DE RUTAS ---  
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent 
 
@@ -59,91 +58,6 @@ def cargar_diccionario_metadatos(ruta_jsonl):
                         print(f"Aviso: No se pudo extraer ID de {nombre_archivo}")
     return diccionario
 
-# def procesar_documentos_y_capa_semantica(dir_pcap, dir_ppt, dicc_metadatos, markdown_splitter):
-#     docs_lista = []
-
-#     archivos_pcap = [f for f in os.listdir(dir_pcap) if f.endswith(".pdf")]
-#     archivos_ppt = [f for f in os.listdir(dir_ppt) if f.endswith(".pdf")]
-#     archivos = archivos_pcap + archivos_ppt
-
-#     for archivo in archivos:
-#         es_pcap = "PCAP" in archivo.upper()
-#         ruta_pdf = dir_pcap / archivo if es_pcap else dir_ppt / archivo
-#         tipo_archivo = "PCAP" if es_pcap else "PPT"
-        
-#         try:
-#             id_actual = extraer_id(archivo) 
-#             datos_jsonl = dicc_metadatos.get(id_actual, {})
-            
-#             # Extraemos todas las paginas
-#             paginas_md = pymupdf4llm.to_markdown(str(ruta_pdf), page_chunks=True)
-            
-#             texto_completo_md = ""
-            
-#             # 1. ENSAMBLAJE DEL DOCUMENTO COMPLETO
-#             for pag_dict in paginas_md:
-#                 texto_md = pag_dict.get("text", "").strip()
-#                 if not texto_md:
-#                     continue
-#                 num_pag = pag_dict.get("metadata", {}).get("page", 0) + 1
-#                 # Inyectamos un marcador sutil por si necesitamos saber la pagina luego
-#                 texto_completo_md += f"\n\n\n\n" + texto_md
-
-#             if not texto_completo_md.strip():
-#                 continue
-
-#             # 2. NORMALIZACION
-#             texto_md_limpio = normalizar_cabeceras_markdown(texto_completo_md)
-            
-#             # 3. METADATOS A NIVEL DE DOCUMENTO
-#             meta_final = {
-#                 "fuente": archivo,
-#                 "doc_id": id_actual if id_actual else "unknown",
-#                 "tipo_documento": tipo_archivo
-#             }
-
-#             tipos_permitidos = (str, int, float, bool)  
-#             for clave, valor in datos_jsonl.items():
-#                 if clave != "archivo" and valor is not None:
-#                     if isinstance(valor, list):
-#                         meta_final[clave] = ", ".join(map(str, valor))
-#                     elif isinstance(valor, tipos_permitidos):
-#                         meta_final[clave] = valor
-#                     else:
-#                         meta_final[clave] = str(valor)
-            
-#             # 4. SPLIT SEMANTICO AL DOCUMENTO ENTERO
-#             md_chunks = markdown_splitter.split_text(texto_md_limpio)
-            
-#             if not md_chunks:
-#                 md_chunks = [Document(page_content=texto_md_limpio, metadata={})]
-            
-#             # 5. INYECCION DE CONTEXTO Y METADATOS EN CADA CHUNK
-#             for chunk in md_chunks:
-#                 niveles = []
-#                 if "Clausula" in chunk.metadata: 
-#                     niveles.append(chunk.metadata["Clausula"])
-#                 if "Apartado" in chunk.metadata: 
-#                     niveles.append(chunk.metadata["Apartado"])
-#                 if "Subapartado" in chunk.metadata: 
-#                     niveles.append(chunk.metadata["Subapartado"])
-                
-#                 seccion = " > ".join(niveles) if niveles else "General"
-#                 id_exp = meta_final.get("doc_id", "N/A")
-                
-#                 contexto = f"[EXP {id_exp} | {seccion}]\n"
-#                 chunk.page_content = contexto + chunk.page_content
-                
-#                 chunk.metadata.update(meta_final)
-#                 docs_lista.append(chunk)
-                
-#             print(f"-> {archivo} procesado (Estructura semantica preservada).")
-            
-#         except Exception as e:
-#             print(f"ERROR procesando {archivo}: {e}")
-            
-#     return docs_lista
-
 def procesar_documentos_y_capa_semantica(dir_pcap, dir_ppt, dicc_metadatos, markdown_splitter):
     docs_lista = []
 
@@ -160,28 +74,23 @@ def procesar_documentos_y_capa_semantica(dir_pcap, dir_ppt, dicc_metadatos, mark
             id_actual = extraer_id(archivo) 
             datos_jsonl = dicc_metadatos.get(id_actual, {})
             
-            # Extraemos todas las paginas
             paginas_md = pymupdf4llm.to_markdown(str(ruta_pdf), page_chunks=True)
             
             texto_completo_md = ""
             
-            # 1. ENSAMBLAJE DEL DOCUMENTO COMPLETO CON MARCADORES
             for pag_dict in paginas_md:
                 texto_md = pag_dict.get("text", "").strip()
                 if not texto_md:
                     continue
                 
                 num_pag = pag_dict.get("metadata", {}).get("page", 0) + 1
-                # INYECCION DEL TOKEN DE PAGINA
                 texto_completo_md += f"\n\n[MARCADOR_PAGINA:{num_pag}]\n\n{texto_md}"
 
             if not texto_completo_md.strip():
                 continue
 
-            # 2. NORMALIZACION
             texto_md_limpio = normalizar_cabeceras_markdown(texto_completo_md)
             
-            # 3. METADATOS A NIVEL DE DOCUMENTO
             meta_final = {
                 "fuente": archivo,
                 "doc_id": id_actual if id_actual else "unknown",
@@ -198,28 +107,22 @@ def procesar_documentos_y_capa_semantica(dir_pcap, dir_ppt, dicc_metadatos, mark
                     else:
                         meta_final[clave] = str(valor)
             
-            # 4. SPLIT SEMANTICO AL DOCUMENTO ENTERO
             md_chunks = markdown_splitter.split_text(texto_md_limpio)
             
             if not md_chunks:
                 md_chunks = [Document(page_content=texto_md_limpio, metadata={})]
             
-            # 5. EXTRACCION DE TOKENS E INYECCION DE CONTEXTO
-            pagina_actual = 1 # Variable de estado para arrastrar la pagina
+            pagina_actual = 1 
             
             for chunk in md_chunks:
-                # Buscamos si el chunk contiene nuestro token de pagina
                 marcadores = re.findall(r"\[MARCADOR_PAGINA:(\d+)\]", chunk.page_content)
                 
                 if marcadores:
-                    # Si hay varios, cogemos el primero para indicar donde empieza la seccion
                     pagina_actual = int(marcadores[0])
                 
-                # Limpiamos el texto borrando los marcadores para no ensuciar los embeddings
                 texto_limpio_chunk = re.sub(r"\[MARCADOR_PAGINA:\d+\]\s*", "", chunk.page_content)
                 chunk.page_content = texto_limpio_chunk.strip()
                 
-                # GUARDAMOS LA PAGINA RECUPERADA EN LOS METADATOS
                 chunk.metadata["pagina"] = pagina_actual
                 
                 niveles = []
@@ -247,7 +150,6 @@ def procesar_documentos_y_capa_semantica(dir_pcap, dir_ppt, dicc_metadatos, mark
     return docs_lista
 
 def configurar_splitters():
-    # 1. Cortador Semantico (Markdown - Capa 1)
     cabeceras_markdown = [
         ("#", "Clausula"),
         ("##", "Apartado"),
@@ -258,7 +160,6 @@ def configurar_splitters():
         strip_headers=False 
     )
     
-    # 2. Cortador de Seguridad Inteligente (Regex Legal - Capa 2)
     rec_splitter = RecursiveCharacterTextSplitter(
         separators=[
             # 1. Numeracion principal
