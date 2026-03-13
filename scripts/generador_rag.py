@@ -26,6 +26,31 @@ def inicializar_llm():
     print("[SISTEMA] Conectando a Llama 3...")
     return ChatOllama(model="llama3.1", temperature=0.1)
 
+def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
+    
+    if not filtros:
+        return None
+        
+    condiciones = []
+    for clave, valor in filtros.items():
+        if isinstance(valor, dict):
+            condiciones.append({clave: valor})
+            
+        # Aqui usamos la variable parametrizada en lugar de numeros magicos
+        elif clave in ["presupuesto_base_licitacion", "valor_estimado_contrato"] and isinstance(valor, (int, float)) and margen_tolerancia > 0:
+            margen_inferior = valor * (1.0 - margen_tolerancia)
+            margen_superior = valor * (1.0 + margen_tolerancia)
+            condiciones.append({
+                clave: {"$gte": margen_inferior, "$lte": margen_superior}
+            })
+            
+        else:
+            condiciones.append({clave: {"$eq": valor}})
+            
+    if len(condiciones) == 1:
+        return condiciones[0]
+    return {"$and": condiciones}
+
 class BorradorPliego:
     def __init__(self, archivo_respaldo=DIR_RESPALDO):
         self.archivo_respaldo = archivo_respaldo
@@ -72,30 +97,15 @@ class BorradorPliego:
         self.secciones = {}
         if os.path.exists(self.archivo_respaldo):
             os.remove(self.archivo_respaldo)
-# VER ESE PROBLEMA CON LAS CADENAS: NO SE ARREGLAN SEGUN EL FEEDBACK DEL USUARIO SINO QUE HACE OTRA COSA.
-#######################################################################################################################################
-#######################################################################################################################################
-#######################################################################################################################################
-#######################################################################################################################################
+
 def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros=None):
     """Genera una seccion desde cero usando RAG estandar."""
     search_kwargs = {"k": 3}
-    
-    if filtros:
-        condiciones = []
-        for clave, valor in filtros.items():
-            # Si el valor ya trae operadores de Chroma (ej: {"$gte": 100000})
-            if isinstance(valor, dict):
-                condiciones.append({clave: valor})
-            # Si es un valor directo (ej: True, "PCAP", 50), aplicamos igualdad exacta
-            else:
-                condiciones.append({clave: {"$eq": valor}})
-                
-        if len(condiciones) == 1:
-            search_kwargs["filter"] = condiciones[0]
-        else:
-            search_kwargs["filter"] = {"$and": condiciones}
 
+    if filtros:
+        filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=0.0)
+        if filtros_procesados:
+            search_kwargs["filter"] = filtros_procesados
 
     retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
 
@@ -126,31 +136,13 @@ def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros=None):
 
 def corregir_seccion_existente(vector_db, llm, texto_actual, feedback_usuario, filtros=None):
     """Reescribe una seccion existente aplicando el feedback del usuario y consultando la BD."""
+    
     search_kwargs = {"k": 2}
     if filtros:
-        condiciones = []
-        for clave, valor in filtros.items():
-            if isinstance(valor, dict):
-                condiciones.append({clave: valor})
-            # Si es el presupuesto, creamos un rango de +- 20%
-            elif clave in ["presupuesto_base_licitacion", "valor_estimado_contrato"] and isinstance(valor, (int, float)):
-                margen_inferior = valor * 0.8
-                margen_superior = valor * 1.2
-                condiciones.append({
-                    clave: {
-                        "$gte": margen_inferior,
-                        "$lte": margen_superior
-                    }
-                })
-            # Para strings, booleanos y otros, usamos igualdad exacta
-            else:
-                condiciones.append({clave: {"$eq": valor}})
-                
-        if len(condiciones) == 1:
-            search_kwargs["filter"] = condiciones[0]
-        else:
-            search_kwargs["filter"] = {"$and": condiciones}
-
+        filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=0.2)
+        if filtros_procesados:
+            search_kwargs["filter"] = filtros_procesados
+        
     retriever = vector_db.as_retriever(search_kwargs=search_kwargs)
 
     template_correccion = """
@@ -176,18 +168,24 @@ def corregir_seccion_existente(vector_db, llm, texto_actual, feedback_usuario, f
     def formatear_documentos(docs):
         return "\n\n---\n\n".join(doc.page_content for doc in docs) if docs else "Sin contexto extra."
 
-    # Inyectamos el texto_actual en el pipeline dinamicamente
     cadena_correccion = (
         {
-            "contexto": retriever | formatear_documentos, 
-            "pregunta": RunnablePassthrough(),
-            "texto_actual": lambda x: texto_actual
+            # AHORA SI: Busca usando la combinacion del texto base y lo que se pide
+            "contexto": lambda x: formatear_documentos(retriever.invoke(f"{x['texto_actual']} {x['pregunta']}")), 
+            
+            # La pregunta y el texto siguen yendo a sus huecos del prompt igual que antes
+            "pregunta": lambda x: x["pregunta"],
+            "texto_actual": lambda x: x["texto_actual"]
         }
         | prompt
         | llm
         | StrOutputParser()
     )
-    return cadena_correccion.invoke(feedback_usuario)
+    
+    return cadena_correccion.invoke({
+        "pregunta": feedback_usuario,
+        "texto_actual": texto_actual
+    })
 
 if __name__ == "__main__":
     print("=== INICIANDO SISTEMA RAG ITERATIVO ===")
