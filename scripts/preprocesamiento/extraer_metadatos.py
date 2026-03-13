@@ -24,6 +24,7 @@ def limpiar_texto_basico(texto):
 def obtener_contexto_relevante(texto_completo, lista_palabras_clave, ventana=800):
     texto_lower = texto_completo.lower()
     recortes = []
+    
     for palabra_clave in lista_palabras_clave:
         indice = 0
         while True:
@@ -281,7 +282,7 @@ def procesar_documento(ruta, llm):
     return datos_finales
 
 if __name__ == "__main__":
-    BASE_DIR = Path(__file__).resolve().parent                
+    BASE_DIR = Path(__file__).resolve().parent.parent          
     PROJECT_ROOT = BASE_DIR.parent           
     DIR_PLIEGOS = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
     DIR_JSON = PROJECT_ROOT / "datos" / "jsons" / "metadatos.jsonl"

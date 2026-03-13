@@ -6,19 +6,16 @@ import re
 import hashlib
 from pathlib import Path
 
-# Librerias de LangChain y Chroma
 import fitz
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
-
 from tqdm import tqdm
 
 # --- CONFIGURACION DE RUTAS ---  
-BASE_DIR = Path(__file__).resolve().parent      
+BASE_DIR = Path(__file__).resolve().parent.parent     
 PROJECT_ROOT = BASE_DIR.parent 
 
 DIR_PDFS_PCAP = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
@@ -129,7 +126,7 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_metadatos):
     return docs_lista
 
 
-def configurar_chunkeador():
+def configurar_chunkeador(chunk_size_par = 1500, chunk_overlap_par = 200):
     return RecursiveCharacterTextSplitter(
         separators=[
             # 1. Numeracion principal (Ej: "1. OBJETO" o "1.- CARACTER")
@@ -158,8 +155,8 @@ def configurar_chunkeador():
             r"\.\s", 
             r" "
         ],
-        chunk_size=600, #1500 // 1000 // 800 // 600 
-        chunk_overlap=100, #200 // 150 // 120 // 100
+        chunk_size=chunk_size_par, #1500 // 1000 // 800 // 600 
+        chunk_overlap=chunk_overlap_par, #200 // 150 // 120 // 100
         length_function=len,
         is_separator_regex=True
     )

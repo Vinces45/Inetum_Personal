@@ -6,6 +6,7 @@ from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+
 from scripts.modelo.pliego import BorradorPliego
 
 # --- CONFIGURACION DE RUTAS ---
@@ -51,7 +52,6 @@ def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
     if len(condiciones) == 1:
         return condiciones[0]
     return {"$and": condiciones}
-
 
 
 def generar_seccion_nueva(vector_db, llm, peticion_usuario, filtros=None):

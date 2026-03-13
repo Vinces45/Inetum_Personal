@@ -5,7 +5,6 @@ import hashlib
 from pathlib import Path
 
 import pymupdf4llm
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
@@ -149,7 +148,7 @@ def procesar_documentos_y_capa_semantica(dir_pcap, dir_ppt, dicc_metadatos, mark
             
     return docs_lista
 
-def configurar_splitters():
+def configurar_splitters(chunk_size_par = 1500, chunk_overlap_par = 200):
     cabeceras_markdown = [
         ("#", "Clausula"),
         ("##", "Apartado"),
@@ -181,8 +180,8 @@ def configurar_splitters():
             r"\.\s", 
             r" "
         ],
-        chunk_size=600, 
-        chunk_overlap=100,
+        chunk_size=chunk_size_par, 
+        chunk_overlap=chunk_overlap_par,
         length_function=len,
         is_separator_regex=True
     )

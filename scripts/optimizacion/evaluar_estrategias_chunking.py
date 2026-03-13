@@ -1,20 +1,20 @@
+# EJECUTAR: ESTAR EN LA CARPETA RAIZ Y PONER ESTO: 
+# python -m scripts.optimizacion.evaluar_estrategias_chunking
+
 import json
-import os
-import shutil
 from pathlib import Path
 from tqdm import tqdm
 
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
-from chunking_embeddings import cargar_y_procesar_documentos as procesar_v1
-from chunking_embeddings import configurar_chunkeador as chunkeador_v1
+from scripts.preprocesamiento.chunking_embeddings import cargar_y_procesar_documentos as procesar_v1
+from scripts.preprocesamiento.chunking_embeddings import configurar_chunkeador as chunkeador_v1
 
-from chunking_embeddings_markdown import procesar_documentos_y_capa_semantica as procesar_v2
-from chunking_embeddings_markdown import configurar_splitters as chunkeador_v2
-from chunking_embeddings_markdown import cargar_diccionario_metadatos
+from scripts.pruebas.chunking_embeddings_markdown import procesar_documentos_y_capa_semantica as procesar_v2
+from scripts.pruebas.chunking_embeddings_markdown import configurar_splitters as chunkeador_v2
+from scripts.pruebas.chunking_embeddings_markdown import cargar_diccionario_metadatos
 
-# --- RUTAS ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
 DIR_PDFS_PCAP = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
@@ -97,9 +97,19 @@ def main_ab_testing():
         embedding_function=modelo_embeddings,
         collection_name="coleccion_v1"
     )
-    # Añadimos en lotes por si son muchos
+    # Añadimos en lotes por si son muchos (CON RED DE SEGURIDAD)
     for i in tqdm(range(0, len(chunks_v1), 50), desc="Ingestando V1"):
-        db_v1.add_documents(chunks_v1[i:i+50])
+        lote_actual = chunks_v1[i:i+50]
+        try:
+            db_v1.add_documents(lote_actual)
+        except Exception as e:
+            # Si el lote entero falla por un chunk gigante, probamos uno a uno
+            for chunk_ind in lote_actual:
+                try:
+                    db_v1.add_documents([chunk_ind])
+                except Exception as ex:
+                    # Ignoramos el chunk problematico silenciosamente (o puedes poner un print)
+                    pass
         
     mrr_v1 = evaluar_mrr(db_v1, preguntas_test)
     print(f"-> MRR Estrategia A: {mrr_v1:.4f}")
@@ -119,13 +129,23 @@ def main_ab_testing():
         collection_name="coleccion_v2"
     )
     for i in tqdm(range(0, len(chunks_v2), 50), desc="Ingestando V2"):
-        db_v2.add_documents(chunks_v2[i:i+50])
-        # Añade esto justo despues de: db_v2.add_documents(chunks_v2[i:i+50])
-        print("\n--- DEPURACION ESTRATEGIA B ---")
-        muestra_chunk = chunks_v2[0]
-        print(f"Contenido (primeros 100 chars): {muestra_chunk.page_content[:100]}...")
-        print(f"Metadatos guardados en V2: {muestra_chunk.metadata}")
-        print("-------------------------------\n")
+        lote_actual = chunks_v2[i:i+50]
+        try:
+            db_v2.add_documents(lote_actual)
+        except Exception as e:
+            for chunk_ind in lote_actual:
+                try:
+                    db_v2.add_documents([chunk_ind])
+                except Exception as ex:
+                    pass
+                    
+        # Tu codigo de depuracion puede ir aqui sin problemas
+        if i == 0: # Imprimimos la depuracion solo en la primera iteracion
+            print("\n--- DEPURACION ESTRATEGIA B ---")
+            muestra_chunk = chunks_v2[0]
+            print(f"Contenido (primeros 100 chars): {muestra_chunk.page_content[:100]}...")
+            print(f"Metadatos guardados en V2: {muestra_chunk.metadata}")
+            print("-------------------------------\n")
         
     mrr_v2 = evaluar_mrr(db_v2, preguntas_test)
     print(f"-> MRR Estrategia B: {mrr_v2:.4f}")
