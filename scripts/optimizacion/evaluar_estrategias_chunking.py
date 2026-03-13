@@ -21,7 +21,7 @@ PROJECT_ROOT = BASE_DIR.parent
 DIR_PDFS_PCAP = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
 DIR_PDFS_PPT = PROJECT_ROOT / "datos" / "pdfs" / "ppt"
 DIR_JSON_META = PROJECT_ROOT / "datos" / "jsons" / "metadatos.jsonl"
-RUTA_JSON_VALIDACION = PROJECT_ROOT / "datos" / "jsons" / "MRR_validacion_nuevo.json"
+RUTA_JSON_VALIDACION = PROJECT_ROOT / "datos" / "jsons" / "MRR" / "MRR_validacion_nuevo.json"
 
 def cargar_preguntas(ruta):
     with open(ruta, 'r', encoding='utf-8') as f:
