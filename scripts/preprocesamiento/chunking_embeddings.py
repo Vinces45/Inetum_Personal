@@ -172,7 +172,7 @@ if __name__ == "__main__":
    
 
     print("3. Ejecutando Chunking Inteligente...")
-    chunky = configurar_chunkeador()
+    chunky = configurar_chunkeador(800, 100)
     chunks = chunky.split_documents(lista_documentos_base)
     
     print(f"   Originales: {len(lista_documentos_base)} docs -> Generados: {len(chunks)} chunks.")
@@ -183,7 +183,8 @@ if __name__ == "__main__":
     vector_db = Chroma(
         embedding_function=embeddings,
         persist_directory=DIR_DB,
-        collection_name="pliegos_oficiales"
+        collection_name="pliegos_oficiales",
+        collection_metadata={"hnsw:space": "cosine"}
     )
 
     TAMAÑO_LOTE = 50 
