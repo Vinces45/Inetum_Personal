@@ -46,15 +46,35 @@ class FiltrosMetadatos(BaseModel):
         default=None, description="Lista de codigos CPV mencionados (ej: ['98341130-5'])."
     )
 
-class PlanOrquestador(BaseModel):
-    accion: Literal["crear", "modificar"] = Field(
-        description="Si el usuario pide algo nuevo es 'crear'. Si pide cambiar algo existente es 'modificar'."
+class PeticionSubseccion(BaseModel):
+    titulo: str = Field(description="Titulo de la subseccion (ej: '1.1. Garantias').")
+    instruccion_especifica: str = Field(description="Que pide exactamente el usuario para esta subseccion concreta.")
+
+class PeticionSeccion(BaseModel):
+    titulo: str = Field(description="Titulo principal de la seccion (ej: '1. Objeto del Contrato').")
+    instruccion_especifica: Optional[str] = Field(
+        default=None, 
+        description="Instruccion general para esta seccion principal. Si solo es un titulo contenedor, dejalo vacio."
     )
-    secciones_a_crear: Optional[List[str]] = Field(
-        default=None, description="Lista de nombres de secciones a redactar."
+    subsecciones: Optional[List[PeticionSubseccion]] = Field(
+        default=None, 
+        description="Lista de subsecciones si el usuario pide desglosarlo en apartados mas pequenos."
+    )
+
+class PlanOrquestador(BaseModel):
+    accion: Literal["crear", "modificar", "eliminar"] = Field(
+        description="Si pide algo nuevo es 'crear', cambiar es 'modificar', borrar es 'eliminar'."
+    )
+    # AQUI ESTA EL CAMBIO: Ahora recibe una lista de objetos complejos
+    secciones_a_crear: Optional[List[PeticionSeccion]] = Field(
+        default=None, 
+        description="Lista detallada de las secciones y subsecciones a redactar desde cero."
     )
     seccion_a_modificar: Optional[str] = Field(
-        default=None, description="Nombre EXACTO de la seccion a cambiar (debe existir en el borrador)."
+        default=None, description="Nombre EXACTO de la seccion a cambiar."
+    )
+    seccion_a_eliminar: Optional[str] = Field(
+        default=None, description="Nombre EXACTO de la seccion a borrar."
     )
     feedback: Optional[str] = Field(
         default=None, description="La instruccion de lo que hay que cambiar en la seccion."

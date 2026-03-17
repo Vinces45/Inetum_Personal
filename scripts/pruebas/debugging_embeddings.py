@@ -17,7 +17,7 @@ def realizar_test():
         return
 
     vector_db = Chroma(
-        persist_directory=DIR_DB,
+        persist_directory=str(DIR_DB),
         embedding_function=embeddings,
         collection_name="pliegos_oficiales"
     )
@@ -31,26 +31,38 @@ def realizar_test():
         if consulta.lower() == "salir": break
             
         print("PONER -1 SI NO QUIERES FILTRO")
-        tipo_doc = input("¿Filtrar por tipo? (Escribe PCAP, PPT, o pulsa Enter): ").strip().upper()
-        presupuesto_base = int(input("Inserte presupuesto base (Sin puntos ni comas, a excepción de los puntos para marcar los céntimos)"))
-        valor_estimado = int(input("Inserte valor estimado total (Sin puntos ni comas, a excepción de los puntos para marcar los céntimos)"))
-        iva = int(input("Inserte valor de IVA (sin símbolo de porcentaje)"))
-        plazo_meses = int(input("Inserte número de meses de plazo ordinario"))
-        prorroga = int(input("Inserte número de meses de prorroga"))
-        tramitacion = input("Inserte tipo de tramitación (Abierto Simplificado, Negociado sin publicidad)")
-        lotes = input("Inserte si tiene lotes o no (S/N)").upper()
-        if lotes == "SI":
-            lotes_bool = True
-        else:
-            lotes_bool = False
-        financiacion_europea = input("Inserte si tiene financiación europea a o no (S/N)").upper()
-        if financiacion_europea == "SI":
-            financiacion_europea_bool = True
-        else:
-            financiacion_europea_bool = False
-        tipo_contrato = input("¿Filtrar por contrato? (Obras, Servicios, Suministros, o Enter): ").strip().capitalize()
+        tipo_doc = input("¿Filtrar por tipo? (Escribe PCAP, PPT, o -1): ").strip().upper()
         
-        # Construimos un filtro complejo dinamicamente usando diccionarios de Chroma
+        # ERROR CORREGIDO 1: Si pulsas Enter vacio al pedir un int(), el programa crashea. 
+        # Hay que capturar el string, comprobar si esta vacio, y convertirlo.
+        def pedir_entero(mensaje):
+            val = input(mensaje).strip()
+            if not val or val == "-1": return -1
+            try: return int(val)
+            except: return -1
+
+        presupuesto_base = pedir_entero("Inserte presupuesto base: ")
+        valor_estimado = pedir_entero("Inserte valor estimado total: ")
+        iva = pedir_entero("Inserte valor de IVA: ")
+        plazo_meses = pedir_entero("Inserte numero de meses de plazo ordinario: ")
+        prorroga = pedir_entero("Inserte numero de meses de prorroga: ")
+        
+        tramitacion = input("Inserte tipo de tramitacion (Abierto Simplificado, Negociado sin publicidad, o -1): ").strip()
+        
+        lotes_input = input("Inserte si tiene lotes o no (S/N o -1): ").strip().upper()
+        # ERROR CORREGIDO 2: Logica condicional segura para booleanos
+        lotes_bool = None
+        if lotes_input == "S": lotes_bool = True
+        elif lotes_input == "N": lotes_bool = False
+
+        financiacion_europea_input = input("Inserte si tiene financiacion europea o no (S/N o -1): ").strip().upper()
+        financiacion_europea_bool = None
+        if financiacion_europea_input == "S": financiacion_europea_bool = True
+        elif financiacion_europea_input == "N": financiacion_europea_bool = False
+            
+        tipo_contrato = input("¿Filtrar por contrato? (Obras, Servicios, Suministros, o -1): ").strip().capitalize()
+        
+        # Construimos un filtro complejo dinamicamente
         filtros_lista = []
         
         if tipo_doc in ["PCAP", "PPT"]:
@@ -59,28 +71,30 @@ def realizar_test():
         if tipo_contrato in ["Obras", "Servicios", "Suministros"]:
             filtros_lista.append({"tipo_contrato": tipo_contrato})
 
+        # CUIDADO AQUI: En tu script de metadatos la clave es "presupuesto_base_licitacion", no "presupuesto_base".
+        # Debes usar los nombres exactos que usaste en preprocesamiento.
         if presupuesto_base != -1:
-            filtros_lista.append({"presupuesto_base": presupuesto_base})
+            filtros_lista.append({"presupuesto_base_licitacion": presupuesto_base})
             
         if valor_estimado != -1:
-            filtros_lista.append({"valor_estimado": valor_estimado})
+            filtros_lista.append({"valor_estimado_contrato": valor_estimado})
 
         if iva != -1:
-            filtros_lista.append({"iva": iva})
+            filtros_lista.append({"iva_porcentaje": iva})
         
         if plazo_meses != -1:
-            filtros_lista.append({"plazo_meses": plazo_meses})
+            filtros_lista.append({"plazo_ejecucion_meses": plazo_meses})
 
         if prorroga != -1:
-            filtros_lista.append({"prorroga": prorroga})
+            filtros_lista.append({"tiempo_prorroga_meses": prorroga})
 
-        if tramitacion != "-1" in ["Abierto Simplificado, Negociado sin publicidad"]:
+        if tramitacion != "-1" and tramitacion != "":
             filtros_lista.append({"tramitacion": tramitacion})
 
-        if lotes != "-1":
+        if lotes_bool is not None:
             filtros_lista.append({"lotes": lotes_bool})
 
-        if financiacion_europea != "-1":
+        if financiacion_europea_bool is not None:
             filtros_lista.append({"financiacion_europea": financiacion_europea_bool})
 
         # Aplicamos la logica de filtrado de LangChain/Chroma ($and si hay varios)
@@ -107,13 +121,13 @@ def realizar_test():
             
             for i, (doc, score) in enumerate(resultados):
                 print(f"RESULTADO #{i+1} | DISTANCIA L2: {score:.4f}")
-                print(f"ARCHIVO: {doc.metadata.get('source', 'Desconocido')} (Pag. {doc.metadata.get('pagina', 'N/A')})")
+                print(f"ARCHIVO: {doc.metadata.get('fuente', 'Desconocido')} (Pag. {doc.metadata.get('pagina', 'N/A')})")
                 
-                # Mostramos solo metadatos clave para no saturar la pantalla
+                # CUIDADO: Ajustado para que coincida con las claves de tu extraccion
                 meta_resumen = {
                     "exp": doc.metadata.get("expediente"),
                     "tipo": doc.metadata.get("tipo_contrato"),
-                    "presupuesto": doc.metadata.get("presupuesto")
+                    "presupuesto": doc.metadata.get("presupuesto_base_licitacion")
                 }
                 print(f"METADATOS: {meta_resumen}")
                 
