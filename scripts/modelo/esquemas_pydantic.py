@@ -27,10 +27,12 @@ class FiltrosMetadatos(BaseModel):
         default=None, description="Procedimiento de adjudicacion."
     )
     lotes: Optional[bool] = Field(
-        default=None, description="True si el contrato esta dividido en lotes, False si es lote unico."
+        default=None, description="True si el contrato esta dividido en lotes, " \
+                                    "False si dice claramente que el contrato es de lote unico."
     )
     financiacion_europea: Optional[bool] = Field(
-        default=None, description="True si cuenta con financiacion de fondos europeos (FEDER, Next Generation), False si no."
+        default=None, description="True si se dice que cuenta con financiacion de fondos europeos (FEDER, Next Generation), " \
+                                    "False si dice claramente que no cuenta con financiacion de fondos europeaos."
     )
 
     # CAMPOS QUE HE METIDO PERO QUE EN PRINICIPIO NO VEO INTERESANTES PARA EL FILTRADO
@@ -58,12 +60,12 @@ class PeticionSeccion(BaseModel):
     )
     subsecciones: Optional[List[PeticionSubseccion]] = Field(
         default=None, 
-        description="Lista de subsecciones si el usuario pide desglosarlo en apartados mas pequenos."
+        description="Lista de subsecciones si el usuario pide desglosarlo en apartados mas pequeños."
     )
 
 class PlanOrquestador(BaseModel):
-    accion: Literal["crear", "modificar", "eliminar"] = Field(
-        description="Si pide algo nuevo es 'crear', cambiar es 'modificar', borrar es 'eliminar'."
+    accion: Literal["crear", "modificar", "eliminar", "resumir", "consultar"] = Field(
+        description="Si pide algo nuevo es 'crear', cambiar es 'modificar', borrar es 'eliminar', resumir contenido es 'resumir', pedir información directamente es 'consultar'."
     )
     # AQUI ESTA EL CAMBIO: Ahora recibe una lista de objetos complejos
     secciones_a_crear: Optional[List[PeticionSeccion]] = Field(
@@ -76,9 +78,18 @@ class PlanOrquestador(BaseModel):
     seccion_a_eliminar: Optional[str] = Field(
         default=None, description="Nombre EXACTO de la seccion a borrar."
     )
+    seccion_a_resumir: Optional[str] = Field(
+        default=None, 
+        description="Ruta de la seccion a resumir. Si el usuario pide resumir todo el documento, dejalo en null."
+    )
     feedback: Optional[str] = Field(
         default=None, description="La instruccion de lo que hay que cambiar en la seccion."
     )
     filtros: Optional[FiltrosMetadatos] = Field(
         default=None, description="Filtros extraidos de la peticion del usuario."
     )
+    pregunta_legal: Optional[str] = Field(
+        default=None, 
+        description="Si la accion es 'consultar', extrae aqui la duda legal exacta del usuario."
+    )
+    

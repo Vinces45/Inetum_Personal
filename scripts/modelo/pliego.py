@@ -8,7 +8,6 @@ PROJECT_ROOT = BASE_DIR.parent.parent
 DIR_RESPALDO = PROJECT_ROOT / "datos" / "borradores_pliego" / "borrador_actual.json"
 
 class NodoSeccion:
-    """Implementacion para soportar arboles de secciones."""
     def __init__(self, titulo, contenido=""):
         self.titulo = titulo
         self.contenido = contenido
@@ -47,6 +46,28 @@ class BorradorPliego:
             # Insertar en la seccion principal
             self.secciones[titulo_principal].contenido = contenido
             
+        self.guardar_respaldo()
+
+    def actualizar_seccion_infinita(self, ruta_titulos, contenido):
+        """
+        NUEVO METODO: Navega por el arbol y guarda el contenido en el ultimo nodo.
+        ruta_titulos: Lista de strings, ej: ["1. Raiz", "1.1 Rama", "1.1.1 Hoja"]
+        """
+        if not ruta_titulos:
+            return
+            
+        titulo_raiz = ruta_titulos[0]
+        if titulo_raiz not in self.secciones:
+            self.secciones[titulo_raiz] = NodoSeccion(titulo_raiz)
+            
+        nodo_actual = self.secciones[titulo_raiz]
+
+        for titulo in ruta_titulos[1:]:
+            if titulo not in nodo_actual.subsecciones:
+                nodo_actual.subsecciones[titulo] = NodoSeccion(titulo)
+            nodo_actual = nodo_actual.subsecciones[titulo]
+            
+        nodo_actual.contenido = contenido
         self.guardar_respaldo()
         
     def eliminar_seccion(self, titulo):
@@ -97,3 +118,93 @@ class BorradorPliego:
             except Exception:
                 pass
         return {}
+    
+    def buscar_texto_seccion_recursivo(self, titulo_buscar, nodos=None):
+        """Busca recursivamente una seccion o subseccion por titulo y devuelve su texto."""
+        if nodos is None:
+            nodos = self.secciones
+            
+        for tit, nodo in nodos.items():
+            # Busqueda ignorando mayusculas/minusculas
+            if tit.lower() == titulo_buscar.lower():
+                return nodo.contenido
+            
+            # Si tiene subsecciones, nos metemos dentro a buscar
+            texto_hijo = self.buscar_texto_seccion_recursivo(titulo_buscar, nodo.subsecciones)
+            if texto_hijo is not None:
+                return texto_hijo
+                
+        return None
+    
+    def obtener_rutas_secciones(self, nodos=None, ruta_actual=""):
+        """Devuelve una lista con las RUTAS COMPLETAS de todas las secciones."""
+        if nodos is None:
+            nodos = self.secciones
+            
+        rutas = []
+        for tit, nodo in nodos.items():
+            # Construimos la ruta (ej: "Lote 1 > Presupuesto")
+            nueva_ruta = f"{ruta_actual} > {tit}" if ruta_actual else tit
+            rutas.append(nueva_ruta)
+            
+            # Llamada recursiva arrastrando la ruta del padre
+            rutas.extend(self.obtener_rutas_secciones(nodo.subsecciones, nueva_ruta))
+            
+        return rutas
+    
+    def buscar_texto_por_ruta(self, ruta_completa):
+        """Busca el texto siguiendo la ruta exacta generada por el orquestador."""
+        # Rompemos el string en una lista ["Lote 1", "Presupuesto"]
+        titulos = [t.strip() for t in ruta_completa.split(">")]
+        
+        nodos_actuales = self.secciones
+        nodo_destino = None
+        
+        # Navegamos bajando nivel a nivel
+        for tit in titulos:
+            if tit in nodos_actuales:
+                nodo_destino = nodos_actuales[tit]
+                nodos_actuales = nodo_destino.subsecciones
+            else:
+                return None # La ruta se ha roto, no existe
+                
+        return nodo_destino.contenido if nodo_destino else None
+    
+    def eliminar_por_ruta(self, ruta_completa):
+        """Elimina una seccion o subseccion especifica siguiendo su ruta exacta."""
+        titulos = [t.strip() for t in ruta_completa.split(">")]
+        
+        if not titulos:
+            return False
+            
+        # CASO 1: Queremos borrar una seccion principal (Raiz)
+        if len(titulos) == 1:
+            titulo_raiz = titulos[0]
+            if titulo_raiz in self.secciones:
+                del self.secciones[titulo_raiz]
+                self.guardar_respaldo()
+                return True
+            return False
+            
+        # CASO 2: Queremos borrar una subseccion
+        nodos_actuales = self.secciones
+        nodo_padre = None
+        
+        # Navegamos hasta llegar al PADRE (todos los elementos menos el ultimo)
+        for tit in titulos[:-1]: 
+            if tit in nodos_actuales:
+                nodo_padre = nodos_actuales[tit]
+                nodos_actuales = nodo_padre.subsecciones
+            else:
+                return False # La ruta se ha roto por el camino
+                
+        # El elemento que queremos borrar es el ultimo de la ruta
+        titulo_a_borrar = titulos[-1]
+        
+        # Si hemos encontrado al padre y el hijo existe dentro de el, lo borramos
+        if nodo_padre and titulo_a_borrar in nodo_padre.subsecciones:
+            del nodo_padre.subsecciones[titulo_a_borrar]
+            self.guardar_respaldo()
+            return True
+            
+        return False

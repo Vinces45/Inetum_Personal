@@ -5,8 +5,6 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-# --- NUEVO IMPORT PARA EL RE-RANKER ---
 from sentence_transformers import CrossEncoder
 
 from scripts.modelo.pliego import BorradorPliego
@@ -101,6 +99,11 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
     Eres un Letrado experto en Contratacion Publica del Gobierno de La Rioja.
     Redacta la siguiente seccion para un pliego basandote UNICAMENTE en el contexto proporcionado.
     
+    REGLAS ESTRICTAS DE FORMATO:
+    1. NO incluyas saludos, despedidas, ni frases introductorias (ej. "Aqui tienes la seccion solicitada:").
+    2. Comienza a escribir directamente el contenido juridico.
+    3. Si el CONTEXTO RECUPERADO dice "Sin contexto.", responde UNICAMENTE con la frase: "Falta contexto legal para generar esta seccion."
+    
     CONTEXTO RECUPERADO:
     {contexto}
 
@@ -116,46 +119,121 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
     
     return cadena_rag.invoke({"contexto": contexto_texto, "pregunta": peticion_usuario})
 
-def corregir_seccion_existente(vector_db, llm, modelo_reranker, texto_actual, feedback_usuario, filtros=None):
+def corregir_seccion_existente(vector_db, llm, modelo_reranker, titulo_seccion, texto_actual, feedback_usuario, filtros=None):
     """Reescribe una seccion existente aplicando el feedback del usuario y consultando la BD."""
     
-    # Para corregir, la query ideal es la mezcla de lo que hay y lo que se pide
-    query_busqueda = f"{texto_actual} {feedback_usuario}"
+    # MEJORA 1: Optimizacion de busqueda. 
+    # Usamos el titulo y el feedback para anclar la busqueda semanticamente, ignorando el texto viejo.
+    query_busqueda = f"Seccion {titulo_seccion}: {feedback_usuario}"
     
     contexto_texto = recuperar_con_reranker(
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
         query=query_busqueda, 
-        k_inicial=15, 
-        k_final=2, 
+        k_inicial=10, # Reducimos el ruido inicial
+        k_final=2,    # Nos quedamos solo con los 2 mejores chunks
         filtros=filtros, 
         tolerancia=0.2
     )
 
+    # MEJORA 2: Prompt blindado y contextualizado
     template_correccion = """
-    Eres un Letrado experto en Contratacion Publica.
-    Tienes el siguiente borrador de una seccion de un pliego:
+    Eres un Letrado experto en Contratacion Publica del Gobierno de La Rioja.
+    Tu tarea es MODIFICAR la seccion titulada '{titulo}' basandote en las instrucciones del usuario.
     
-    BORRADOR ACTUAL:
+    [TEXTO ACTUAL DE LA SECCION]
     {texto_actual}
     
-    El usuario ha solicitado el siguiente CAMBIO o CORRECCION:
+    [INSTRUCCION DE CAMBIO DEL USUARIO]
     {pregunta}
     
-    CONTEXTO RECUPERADO (Por si necesitas consultar normativa para el cambio):
+    [NUEVO CONTEXTO LEGAL RECUPERADO]
     {contexto}
     
-    INSTRUCCIONES:
-    1. Reescribe el BORRADOR ACTUAL aplicando el CAMBIO solicitado.
-    2. Manten el mismo tono formal.
-    3. Devuelve UNICAMENTE la nueva redaccion de la seccion modificada, sin comentarios.
+    REGLAS DE ACTUACION ESTRICTAS:
+    1. Aplica el cambio solicitado al TEXTO ACTUAL.
+    2. Si el NUEVO CONTEXTO LEGAL aplica al cambio, integralo con lenguaje juridico formal.
+    3. Si la instruccion contradice el texto actual, reemplaza esa parte especifica.
+    4. NO agregues introducciones, saludos, ni frases como "Aqui tienes la redaccion" o "Entendido".
+    5. Devuelve EXCLUSIVAMENTE el texto final resultante de la seccion modificada.
+
+    NUEVA REDACCION:
     """
     prompt = ChatPromptTemplate.from_template(template_correccion)
 
     cadena_correccion = prompt | llm | StrOutputParser()
     
     return cadena_correccion.invoke({
+        "titulo": titulo_seccion,
         "contexto": contexto_texto,
         "pregunta": feedback_usuario,
         "texto_actual": texto_actual
     })
+
+def recolectar_texto_rama(nodo):
+    """Recolecta recursivamente el texto de un nodo y todos sus hijos."""
+    texto = nodo.contenido + "\n" if nodo.contenido else ""
+    for sub_nodo in nodo.subsecciones.values():
+        texto += recolectar_texto_rama(sub_nodo)
+    return texto
+
+def resumir_seccion(llm, titulo, texto):
+    """Genera un resumen ejecutivo de un fragmento de texto usando LLM."""
+    if not texto.strip(): 
+        return "Seccion sin contenido redactado."
+    
+    template = """
+    Eres un Letrado Supervisor. Haz un resumen ejecutivo de la siguiente seccion.
+    
+    REGLAS:
+    1. Se muy conciso y usa viñetas.
+    2. Destaca solo datos clave (plazos, presupuestos, objetos, penalizaciones).
+    3. NO uses frases introductorias (ej. "Aqui tienes el resumen"). Empieza directo.
+    
+    SECCION: {titulo}
+    TEXTO ORIGINAL:
+    {texto}
+    
+    RESUMEN:
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+    cadena = prompt | llm | StrOutputParser()
+    
+    return cadena.invoke({"titulo": titulo, "texto": texto})
+
+def consultar_duda_legal(vector_db, llm, modelo_reranker, pregunta, filtros=None):
+    """Responde a una pregunta legal usando la BD vectorial sin modificar el pliego."""
+    
+    # Buscamos en ChromaDB exactamente igual que al crear
+    contexto_texto = recuperar_con_reranker(
+        vector_db=vector_db, 
+        modelo_reranker=modelo_reranker, 
+        query=pregunta, 
+        k_inicial=10, 
+        k_final=3, 
+        filtros=filtros, 
+        tolerancia=0.0
+    )
+
+    template = """
+    Eres un Letrado Consultor del Gobierno de La Rioja.
+    Responde a la duda legal del usuario basandote UNICAMENTE en el contexto proporcionado.
+    
+    CONTEXTO NORMATIVO:
+    {contexto}
+
+    PREGUNTA DEL USUARIO:
+    {pregunta}
+
+    REGLAS:
+    1. Responde de forma clara, didactica y directa.
+    2. Si el contexto dice "Sin contexto", responde: "No he encontrado informacion sobre esto en la normativa base."
+    3. Cita el articulo o la ley si aparece en el contexto.
+    
+    RESPUESTA LEGAL:
+    """
+    
+    prompt = ChatPromptTemplate.from_template(template)
+    cadena = prompt | llm | StrOutputParser()
+    
+    return cadena.invoke({"contexto": contexto_texto, "pregunta": pregunta})
