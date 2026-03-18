@@ -20,6 +20,7 @@ confection==0.1.5
 cymem==2.0.13
 dataclasses-json==0.6.7
 distro==1.9.0
+docx==0.2.4
 durationpy==0.10
 filelock==3.24.3
 flatbuffers==25.12.19
@@ -60,6 +61,7 @@ langgraph-checkpoint==4.0.0
 langgraph-prebuilt==1.0.7
 langgraph-sdk==0.3.7
 langsmith==0.7.4
+lxml==6.0.2
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 marshmallow==3.26.2
@@ -85,6 +87,7 @@ orjson==3.11.7
 ormsgpack==1.12.2
 overrides==7.7.0
 packaging==26.0
+pillow==12.1.1
 posthog==5.4.0
 preshed==3.0.12
 propcache==0.4.1
@@ -95,12 +98,12 @@ pydantic-settings==2.13.1
 pydantic_core==2.41.5
 Pygments==2.19.2
 PyMuPDF==1.27.1
-pymupdf-layout==1.27.1
 pymupdf4llm==0.3.4
 pypdf==6.7.0
 PyPika==0.51.1
 pyproject_hooks==1.2.0
 python-dateutil==2.9.0.post0
+python-docx==1.2.0
 python-dotenv==1.2.1
 PyYAML==6.0.3
 referencing==0.37.0

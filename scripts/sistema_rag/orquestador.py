@@ -5,6 +5,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from scripts.sistema_rag.generador_rag import inicializar_bd, inicializar_llm, inicializar_reranker, generar_seccion_nueva, corregir_seccion_existente, recolectar_texto_rama, resumir_seccion, consultar_duda_legal
 from scripts.modelo.pliego import BorradorPliego
 from scripts.modelo.esquemas_pydantic import PlanOrquestador
+from scripts.modelo.exportador import exportar_a_word
 
 def analizar_peticion_usuario(peticion, estado_documento, llm):
     print("\n[ORQUESTADOR] Analizando intencion del usuario con Pydantic...")
@@ -22,7 +23,7 @@ def analizar_peticion_usuario(peticion, estado_documento, llm):
     {secciones_actuales}
     
     INSTRUCCIONES CRITICAS:
-    1. Determina la ACCION principal: "crear", "modificar", "eliminar", "resumir" o "consultar".
+    1. Determina la ACCION principal: "crear", "modificar", "eliminar", "resumir", "consultar" o "exportar"
     2. SI LA ACCION ES 'crear', ES OBLIGATORIO RELLENAR LA LISTA 'secciones_a_crear'.
     3. SI LA ACCION ES 'modificar', 'eliminar' o 'resumir', copia la RUTA EXACTA de la lista superior. Si pide resumir TODO el documento, deja la ruta en null. 
     4. SI LA ACCION ES 'consultar', significa que el usuario tiene una duda legal teorica. Extrae esa duda exacta en el campo 'pregunta_legal'.
@@ -239,3 +240,13 @@ if __name__ == "__main__":
             print("-"*50)
             print(respuesta)
             print("-"*50)
+
+        elif accion == "exportar":
+            ruta_archivo = "datos/pliego_final.docx"
+            exito = exportar_a_word(documento_en_progreso.secciones, ruta_archivo)
+            
+            if exito:
+                print(f"\n[EXITO] ¡Documento exportado con exito a Word!")
+                print(f"Puedes abrirlo en la ruta: {ruta_archivo}")
+            else:
+                print("\n[AVISO] Hubo un problema al generar el archivo Word.")
