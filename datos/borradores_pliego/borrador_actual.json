@@ -1,13 +1,18 @@
 {
-    "Condiciones Economicas y Temporales": {
+    "Condiciones Economicas": {
         "contenido": "",
         "subsecciones": {
-            "Presupuestos": {
-                "contenido": "**CONDICIONES ECONÓMICAS Y TEMPORALES**\n\n**Presupuestos**\n\nEl presupuesto base de licitación del presente contrato asciende a la cantidad de CUARENTA Y NUEVE MIL SEISCIENTOS DIEZ EUROS (49.610,00 €) IVA incluido.\n\nDe acuerdo con el desglose proporcionado, el presupuesto se divide en dos lotes:\n\n* **Lote 1: Honorarios Redacción Proyecto Adecuación Centro Comarcal**: 25.000,00 €\n* **Lote 2: Honorarios Dirección de Obra y Dirección de Ejecución**: 9.000,00 € (Dirección de Obra) + 3.000 € (Dirección de Ejecución) = 12.000,00 €\n\nEs importante destacar que el presupuesto base se ha calculado con un número total de suministros estimativos, pero no hay obligación del órgano de contratación a solicitar prestaciones por dichas cantidades.\n\nAdemás, se debe tener en cuenta que la licitación es a PRECIOS UNITARIOS, según listado de precios del PPT (incorporado al modelo de oferta).",
-                "subsecciones": {}
-            },
             "Plazos": {
-                "contenido": "**CONDICIONES ECONÓMICAS Y TEMPORALES**\n\n**PLAZOS**\n\nLa presente contratación se regirá por el plazo total de ejecución establecido en el artículo 7 del Pliego, que comienza a contar desde la fecha de formalización del contrato y finaliza el 31 de mayo de 2026.\n\nA efectos de la planificación y seguimiento de la ejecución del contrato, se establecen las siguientes fases y plazos:\n\n*   **Fase 1:** Se desarrollará durante los primeros 12 meses desde la formalización del contrato. Durante este período, el contratista deberá cumplir con los objetivos y hitos establecidos en el Componente 13 del Mecanismo de Recuperación y Resiliencia (MRR), específicamente en la Inversión 1 (C13.I1).\n*   **Fase 2:** Comenzará después de la finalización de la Fase 1, hasta el 31 de mayo de 2026. Durante este período, se realizarán las actividades complementarias y finales para asegurar la correcta implementación del proyecto.\n\nEs importante destacar que los plazos establecidos en esta subsección son vinculantes y deberán ser cumplidos por el contratista. En caso de incumplimiento o retraso, se adoptarán medidas correctoras para asegurar la continuidad y éxito del proyecto.",
+                "contenido": "**CONDICIONES ECONÓMICAS**\n\n**PLAZOS**\n\nEl plazo total de ejecución del contrato será de nueve (9) meses a contar desde la fecha de formalización del mismo.\n\nDurante este período, el contratista deberá cumplir con las obligaciones establecidas en el contrato y realizar los trabajos necesarios para su ejecución.\n\nEs importante destacar que, si se establece un plazo de garantía, éste será indicado en la cláusula correspondiente del presente pliego.",
+                "subsecciones": {}
+            }
+        }
+    },
+    "Condiciones Económicas": {
+        "contenido": "",
+        "subsecciones": {
+            "Plazos": {
+                "contenido": "**CONDICIONES ECONÓMICAS**\n\n**PLAZOS**\n\nEl plazo para solicitar información adicional sobre los pliegos y demás documentación complementaria será de 12 días, contados a partir del día siguiente al de la publicación en el Boletín Oficial de La Rioja.\n\nLas aclaraciones que se proporcionen tendrán carácter vinculante.",
                 "subsecciones": {}
             }
         }

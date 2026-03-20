@@ -2,7 +2,11 @@ import json
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 
-from scripts.sistema_rag.generador_rag import inicializar_bd, inicializar_llm, inicializar_reranker, generar_seccion_nueva, corregir_seccion_existente, recolectar_texto_rama, resumir_seccion, consultar_duda_legal
+from scripts.sistema_rag.generador_rag import (
+    inicializar_bd, inicializar_llm, inicializar_reranker, 
+    generar_seccion_nueva, corregir_seccion_existente, 
+    recolectar_texto_rama, resumir_seccion, consultar_duda_legal
+)
 from scripts.modelo.pliego import BorradorPliego
 from scripts.modelo.esquemas_pydantic import PlanOrquestador
 from scripts.modelo.exportador import exportar_a_word
@@ -11,25 +15,26 @@ def analizar_peticion_usuario(peticion, estado_documento, llm):
     print("\n[ORQUESTADOR] Analizando intencion del usuario con Pydantic...")
     
     llm_estructurado = llm.with_structured_output(PlanOrquestador)
-    
-    # Obtenemos las rutas completas para evitar colisiones de nombres
     secciones_existentes = estado_documento.obtener_rutas_secciones()
     
+    # PROMPT BLINDADO: Instrucciones de mapeo estricto
     prompt_orquestador = """
     Eres el Orquestador de una IA legal del Gobierno de La Rioja.
-    Analiza la peticion del usuario y extrae la informacion para crear, modificar, eliminar, resumir o consultar.
+    Analiza la peticion del usuario y extrae la informacion al formato JSON requerido.
     
     SECCIONES ACTUALMENTE EN EL BORRADOR:
     {secciones_actuales}
     
-    INSTRUCCIONES CRITICAS:
-    1. Determina la ACCION principal: "crear", "modificar", "eliminar", "resumir", "consultar" o "exportar"
-    2. SI LA ACCION ES 'crear', ES OBLIGATORIO RELLENAR LA LISTA 'secciones_a_crear'.
-    3. SI LA ACCION ES 'modificar', 'eliminar' o 'resumir', copia la RUTA EXACTA de la lista superior. Si pide resumir TODO el documento, deja la ruta en null. 
-    4. SI LA ACCION ES 'consultar', significa que el usuario tiene una duda legal teorica. Extrae esa duda exacta en el campo 'pregunta_legal'.
-    5. Extrae los metadatos de la peticion del usuario para rellenar los filtros. Si no menciona un dato, dejalo en null.
-
-  
+    INSTRUCCIONES CRITICAS DE MAPEO:
+    1. ACCION: Determina si es "crear", "modificar", "eliminar", "resumir", "consultar" o "exportar".
+    2. SI ES 'crear': Debes rellenar obligatoriamente el campo 'secciones_a_crear'.
+    3. SI ES 'modificar': Debes rellenar OBLIGATORIAMENTE el campo 'seccion_a_modificar' con la RUTA EXACTA de la lista superior, y el campo 'feedback' con la correccion.
+    4. SI ES 'eliminar': Debes rellenar el campo 'seccion_a_eliminar' con la RUTA EXACTA.
+    5. SI ES 'resumir': Rellena 'seccion_a_resumir' con la RUTA EXACTA. Si pide todo el documento, dejalo en null.
+    6. SI ES 'consultar': Rellena 'pregunta_legal' con la duda exacta del usuario.
+    7. REGLA DE EXPORTACION: Si el usuario menciona "exportar", "word", "docx" o "descargar", LA ACCION ES ESTRICTAMENTE 'exportar'. ESTO JAMAS DEBE SER CLASIFICADO COMO 'consultar'.
+    8. Extrae metadatos para rellenar los filtros. Si no hay datos concretos, dejalo en null.
+    
     PETICION DEL USUARIO: "{peticion}"
     """
     
@@ -43,7 +48,6 @@ def analizar_peticion_usuario(peticion, estado_documento, llm):
         })
         
         if not plan_obj: return None
-        
         plan_dict = plan_obj.model_dump(exclude_none=True)
         
         if "filtros" in plan_dict and not plan_dict["filtros"]:
@@ -84,7 +88,6 @@ if __name__ == "__main__":
             continue
             
         print(f"\n[PLAN ESTRATEGICO] {json.dumps(plan_accion, indent=2)}")
-        
         accion = plan_accion.get("accion")
         filtros = plan_accion.get("filtros")
         
@@ -98,17 +101,12 @@ if __name__ == "__main__":
                 subsecciones = seccion_obj.get("subsecciones", [])
                 
                 print(f"\n--- Procesando Seccion: {titulo_sec} ---")
-                
-                # Definimos la ruta de la seccion principal como una lista de 1 elemento
                 ruta_principal = [titulo_sec]
                 
                 if instruccion_sec or not subsecciones:
                     instruccion_final = instruccion_sec if instruccion_sec else f"Redacta el contenido de {titulo_sec}"
                     prompt_rag = f"Redacta la seccion '{titulo_sec}'. Instrucciones: {instruccion_final}"
-                    
                     borrador = generar_seccion_nueva(db_vectorial, modelo_llm_rag, modelo_reranker, prompt_rag, filtros)
-                    
-                    # NUEVO: Usamos el metodo infinito pasandole la lista
                     documento_en_progreso.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido=borrador)
                 else:
                     documento_en_progreso.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido="")
@@ -117,13 +115,9 @@ if __name__ == "__main__":
                     for sub_obj in subsecciones:
                         titulo_sub = sub_obj.get("titulo")
                         instruccion_sub = sub_obj.get("instruccion_especifica") or f"Redacta {titulo_sub}"
-                        
                         print(f"  -> Generando subseccion: {titulo_sub}")
                         prompt_rag_sub = f"Redacta la subseccion '{titulo_sub}' de la seccion '{titulo_sec}'. Instrucciones: {instruccion_sub}"
-                        
                         borrador_sub = generar_seccion_nueva(db_vectorial, modelo_llm_rag, modelo_reranker, prompt_rag_sub, filtros)
-                        
-                        # NUEVO: Construimos la ruta anidada como una lista de 2 elementos
                         ruta_hijo = [titulo_sec, titulo_sub]
                         documento_en_progreso.actualizar_seccion_infinita(ruta_titulos=ruta_hijo, contenido=borrador_sub)
                         
@@ -134,44 +128,29 @@ if __name__ == "__main__":
             feedback = plan_accion.get("feedback")
             
             if not seccion_objetivo or not feedback:
-                print("\n[AVISO] Faltan datos. Asegurate de decirme que seccion quieres cambiar y que quieres que haga exactamente.")
+                print("\n[AVISO] Faltan datos. Asegurate de decirme que seccion quieres cambiar y que quieres hacer.")
                 continue
             
-            # Buscamos usando la ruta completa
             texto_actual = documento_en_progreso.buscar_texto_por_ruta(seccion_objetivo)
             
             if not texto_actual:
                 print(f"\n[AVISO] No se ha encontrado la seccion o subseccion '{seccion_objetivo}'.")
             else:
                 print(f"\n[SISTEMA] Aplicando correcciones a '{seccion_objetivo}' mediante RAG...")
-                
                 texto_corregido = corregir_seccion_existente(
-                    vector_db=db_vectorial, 
-                    llm=modelo_llm_rag, 
-                    modelo_reranker=modelo_reranker, 
-                    titulo_seccion=seccion_objetivo, 
-                    texto_actual=texto_actual, 
-                    feedback_usuario=feedback, 
-                    filtros=filtros
+                    vector_db=db_vectorial, llm=modelo_llm_rag, modelo_reranker=modelo_reranker, 
+                    titulo_seccion=seccion_objetivo, texto_actual=texto_actual, feedback_usuario=feedback, filtros=filtros
                 )
-
-                # NUEVO: Convertimos el string "Padre > Hijo" en una lista ["Padre", "Hijo"]
                 ruta_lista = [t.strip() for t in seccion_objetivo.split(">")]
-                
-                # Usamos el metodo infinito para que lo guarde exactamente en su lugar del arbol
                 documento_en_progreso.actualizar_seccion_infinita(ruta_titulos=ruta_lista, contenido=texto_corregido) 
-                
                 print("\n[EXITO] Seccion actualizada. Escribe 'ver' para revisar el cambio.")
                 
         elif accion == "eliminar":
             seccion_objetivo = plan_accion.get("seccion_a_eliminar")
-            
             if not seccion_objetivo:
                 print("\n[AVISO] El sistema no pudo identificar que seccion quieres eliminar.")
             else:
-                # Ahora usamos el nuevo metodo pasandole la ruta literal "Padre > Hijo"
                 exito = documento_en_progreso.eliminar_por_ruta(seccion_objetivo)
-                
                 if exito:
                     print(f"\n[EXITO] Se ha borrado correctamente: '{seccion_objetivo}'. Escribe 'ver' para comprobarlo.")
                 else:
@@ -179,16 +158,10 @@ if __name__ == "__main__":
 
         elif accion == "resumir":
             seccion_objetivo = plan_accion.get("seccion_a_resumir")
-            
-            print("\n" + "*"*50)
-            print("GENERANDO RESUMEN EJECUTIVO...")
-            print("*"*50)
+            print("\n" + "*"*50 + "\nGENERANDO RESUMEN EJECUTIVO...\n" + "*"*50)
             
             if seccion_objetivo:
-                # Opcion A: El usuario solo quiere resumir una ruta concreta
                 titulos = [t.strip() for t in seccion_objetivo.split(">")]
-                
-                # Navegamos hasta el nodo
                 nodo_actual = documento_en_progreso.secciones.get(titulos[0])
                 for tit in titulos[1:]:
                     if nodo_actual and tit in nodo_actual.subsecciones:
@@ -202,9 +175,7 @@ if __name__ == "__main__":
                     print(f"\n# RESUMEN DE: {seccion_objetivo.upper()}\n{resumen}")
                 else:
                     print(f"[AVISO] No se encontro la ruta '{seccion_objetivo}' para resumir.")
-                    
             else:
-                # Opcion B: El usuario quiere resumir TODO el pliego (Map-Reduce por raices)
                 if not documento_en_progreso.secciones:
                     print("[AVISO] El documento esta vacio.")
                 else:
@@ -212,39 +183,22 @@ if __name__ == "__main__":
                         print(f"\n[SISTEMA] Analizando rama: {titulo_prin}...")
                         texto_rama = recolectar_texto_rama(nodo_prin)
                         resumen = resumir_seccion(modelo_llm_rag, titulo_prin, texto_rama)
-                        
                         print(f"\n# {titulo_prin.upper()}\n{resumen}")
-            
             print("\n" + "*"*50)
 
         elif accion == "consultar":
             duda = plan_accion.get("pregunta_legal")
-            
             if not duda:
                 print("\n[AVISO] No he entendido bien tu pregunta legal. ¿Puedes reformularla?")
                 continue
                 
-            print(f"\n[CONSULTOR LEGAL] Buscando respuesta en la normativa para: '{duda}'...")
-            
-            # Llamamos a la nueva funcion sin tocar el documento_en_progreso
-            respuesta = consultar_duda_legal(
-                vector_db=db_vectorial, 
-                llm=modelo_llm_rag, 
-                modelo_reranker=modelo_reranker, 
-                pregunta=duda, 
-                filtros=filtros
-            )
-            
-            print("\n" + "-"*50)
-            print("DICTAMEN JURIDICO:")
-            print("-"*50)
-            print(respuesta)
-            print("-"*50)
+            print(f"\n[CONSULTOR LEGAL] Buscando respuesta para: '{duda}'...")
+            respuesta = consultar_duda_legal(db_vectorial, modelo_llm_rag, modelo_reranker, duda, filtros)
+            print("\n" + "-"*50 + "\nDICTAMEN JURIDICO:\n" + "-"*50 + f"\n{respuesta}\n" + "-"*50)
 
         elif accion == "exportar":
             ruta_archivo = "datos/pliego_final.docx"
             exito = exportar_a_word(documento_en_progreso.secciones, ruta_archivo)
-            
             if exito:
                 print(f"\n[EXITO] ¡Documento exportado con exito a Word!")
                 print(f"Puedes abrirlo en la ruta: {ruta_archivo}")
