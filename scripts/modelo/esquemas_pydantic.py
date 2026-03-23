@@ -35,8 +35,6 @@ class FiltrosMetadatos(BaseModel):
                                     "False si dice claramente que no cuenta con financiacion de fondos europeaos."
     )
 
-    # CAMPOS QUE HE METIDO PERO QUE EN PRINICIPIO NO VEO INTERESANTES PARA EL FILTRADO
-    # SEGURAMENTE LOS ACABE RETIRANDO
 
     archivo: Optional[str] = Field(
         default=None, description="Nombre del archivo PDF original si el usuario lo menciona."
@@ -67,7 +65,6 @@ class PlanOrquestador(BaseModel):
     accion: Literal["crear", "modificar", "eliminar", "resumir", "consultar", "exportar"] = Field(
         description="Si pide algo nuevo es 'crear', cambiar es 'modificar', borrar es 'eliminar', resumir contenido es 'resumir', pedir información directamente es 'consultar' y descargar o exportar es 'exportar'."
     )
-    # AQUI ESTA EL CAMBIO: Ahora recibe una lista de objetos complejos
     secciones_a_crear: Optional[List[PeticionSeccion]] = Field(
         default=None, 
         description="Lista detallada de las secciones y subsecciones a redactar desde cero."
