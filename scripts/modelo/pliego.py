@@ -11,7 +11,7 @@ class NodoSeccion:
     def __init__(self, titulo, contenido=""):
         self.titulo = titulo
         self.contenido = contenido
-        self.subsecciones = {}  # Diccionario {titulo_subseccion: NodoSeccion}
+        self.subsecciones = {} 
 
     def to_dict(self):
         """Prepara el nodo para ser guardado en JSON."""
@@ -39,19 +39,16 @@ class BorradorPliego:
             self.secciones[titulo_principal] = NodoSeccion(titulo_principal)
             
         if titulo_subseccion:
-            # Insertar en la subseccion
             nodo_principal = self.secciones[titulo_principal]
             nodo_principal.subsecciones[titulo_subseccion] = NodoSeccion(titulo_subseccion, contenido)
         else:
-            # Insertar en la seccion principal
             self.secciones[titulo_principal].contenido = contenido
             
         self.guardar_respaldo()
 
     def actualizar_seccion_infinita(self, ruta_titulos, contenido):
         """
-        NUEVO METODO: Navega por el arbol y guarda el contenido en el ultimo nodo.
-        ruta_titulos: Lista de strings, ej: ["1. Raiz", "1.1 Rama", "1.1.1 Hoja"]
+        Navega por el arbol y guarda el contenido en el ultimo nodo.
         """
         if not ruta_titulos:
             return
@@ -102,6 +99,7 @@ class BorradorPliego:
         return texto_doc + "\n" + "="*50
 
     def guardar_respaldo(self):
+        """ Guarda el borrador actual para que no se pierda"""
         try:
             datos = {t: nodo.to_dict() for t, nodo in self.secciones.items()}
             with open(self.archivo_respaldo, 'w', encoding='utf-8') as f:
@@ -110,6 +108,7 @@ class BorradorPliego:
             print(f"[ERROR PERSISTENCIA]: {e}")
 
     def cargar_respaldo(self):
+        """Carga el borrador que esta guardado"""
         if os.path.exists(self.archivo_respaldo):
             try:
                 with open(self.archivo_respaldo, 'r', encoding='utf-8') as f:
@@ -125,11 +124,9 @@ class BorradorPliego:
             nodos = self.secciones
             
         for tit, nodo in nodos.items():
-            # Busqueda ignorando mayusculas/minusculas
             if tit.lower() == titulo_buscar.lower():
                 return nodo.contenido
             
-            # Si tiene subsecciones, nos metemos dentro a buscar
             texto_hijo = self.buscar_texto_seccion_recursivo(titulo_buscar, nodo.subsecciones)
             if texto_hijo is not None:
                 return texto_hijo
@@ -137,36 +134,32 @@ class BorradorPliego:
         return None
     
     def obtener_rutas_secciones(self, nodos=None, ruta_actual=""):
-        """Devuelve una lista con las RUTAS COMPLETAS de todas las secciones."""
+        """Devuelve una lista con las rutas completas de todas las secciones."""
         if nodos is None:
             nodos = self.secciones
             
         rutas = []
         for tit, nodo in nodos.items():
-            # Construimos la ruta (ej: "Lote 1 > Presupuesto")
             nueva_ruta = f"{ruta_actual} > {tit}" if ruta_actual else tit
             rutas.append(nueva_ruta)
             
-            # Llamada recursiva arrastrando la ruta del padre
             rutas.extend(self.obtener_rutas_secciones(nodo.subsecciones, nueva_ruta))
             
         return rutas
     
     def buscar_texto_por_ruta(self, ruta_completa):
         """Busca el texto siguiendo la ruta exacta generada por el orquestador."""
-        # Rompemos el string en una lista ["Lote 1", "Presupuesto"]
         titulos = [t.strip() for t in ruta_completa.split(">")]
         
         nodos_actuales = self.secciones
         nodo_destino = None
         
-        # Navegamos bajando nivel a nivel
         for tit in titulos:
             if tit in nodos_actuales:
                 nodo_destino = nodos_actuales[tit]
                 nodos_actuales = nodo_destino.subsecciones
             else:
-                return None # La ruta se ha roto, no existe
+                return None 
                 
         return nodo_destino.contenido if nodo_destino else None
     
@@ -177,7 +170,6 @@ class BorradorPliego:
         if not titulos:
             return False
             
-        # CASO 1: Queremos borrar una seccion principal (Raiz)
         if len(titulos) == 1:
             titulo_raiz = titulos[0]
             if titulo_raiz in self.secciones:
@@ -186,22 +178,18 @@ class BorradorPliego:
                 return True
             return False
             
-        # CASO 2: Queremos borrar una subseccion
         nodos_actuales = self.secciones
         nodo_padre = None
         
-        # Navegamos hasta llegar al PADRE (todos los elementos menos el ultimo)
         for tit in titulos[:-1]: 
             if tit in nodos_actuales:
                 nodo_padre = nodos_actuales[tit]
                 nodos_actuales = nodo_padre.subsecciones
             else:
-                return False # La ruta se ha roto por el camino
+                return False
                 
-        # El elemento que queremos borrar es el ultimo de la ruta
         titulo_a_borrar = titulos[-1]
         
-        # Si hemos encontrado al padre y el hijo existe dentro de el, lo borramos
         if nodo_padre and titulo_a_borrar in nodo_padre.subsecciones:
             del nodo_padre.subsecciones[titulo_a_borrar]
             self.guardar_respaldo()

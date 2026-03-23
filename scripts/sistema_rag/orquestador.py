@@ -17,7 +17,6 @@ def analizar_peticion_usuario(peticion, estado_documento, llm):
     llm_estructurado = llm.with_structured_output(PlanOrquestador)
     secciones_existentes = estado_documento.obtener_rutas_secciones()
     
-    # PROMPT BLINDADO: Instrucciones de mapeo estricto
     prompt_orquestador = """
     Eres el Orquestador de una IA legal del Gobierno de La Rioja.
     Analiza la peticion del usuario y extrae la informacion al formato JSON requerido.

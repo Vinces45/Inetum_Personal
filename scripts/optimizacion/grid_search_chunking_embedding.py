@@ -12,7 +12,6 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
-# --- NUEVO IMPORT PARA EL RE-RANKER ---
 from sentence_transformers import CrossEncoder
 
 from scripts.preprocesamiento.chunking_embeddings import cargar_diccionario_metadatos, cargar_y_procesar_documentos, configurar_chunkeador
@@ -77,19 +76,17 @@ def evaluar_configuracion(docs_regex, docs_md, size, overlap, space, estrategia,
                     print(f"    [DESCARTADO] Exceso de tokens en chunk del doc_id: {doc_id}")
                     continue
     
-    # --- EVALUACION MRR CON PIPELINE DE 2 FASES ---
+    
     suma_rr = 0.0
-    k_recuperacion_inicial = 15 # Chroma saca los 15 mas parecidos
-    k_eval_final = 5            # Evaluamos el acierto sobre el Top 5 reordenado
+    k_recuperacion_inicial = 15 
+    k_eval_final = 5            
     
     for item in ground_truth:
         consulta = item["pregunta"]
         id_esperado = str(item["doc_id_esperado"])
         
-        # FASE 1: Retrieval rapido con Chroma (Bi-Encoder)
         resultados_chroma = vector_db.similarity_search_with_score(consulta, k=k_recuperacion_inicial)
         
-        # FASE 2: Re-Ranking profundo (Cross-Encoder)
         pares_evaluacion = []
         for doc, score in resultados_chroma:
             pares_evaluacion.append([consulta, doc.page_content])
@@ -101,7 +98,6 @@ def evaluar_configuracion(docs_regex, docs_md, size, overlap, space, estrategia,
         
         top_final = resultados_reordenados[:k_eval_final]
         
-        # Calculo tradicional del MRR sobre el Top 5 reordenado
         rr_actual = 0.0
         for posicion, (datos_originales, nueva_puntuacion) in enumerate(top_final):
             doc = datos_originales[0] 
@@ -117,6 +113,7 @@ def evaluar_configuracion(docs_regex, docs_md, size, overlap, space, estrategia,
 
     vector_db.delete_collection()
     return mrr_final
+
 def main_grid_search():
     print("=== INICIANDO GRID SEARCH Y EVALUACION EXHAUSTIVA ===")
     
@@ -174,7 +171,7 @@ def main_grid_search():
             print(f"Error evaluando la configuracion {config} en validacion: {e}")
             
     print("\n--- FASE 2: EVALUACION EN TEST DE TODAS LAS COMBINACIONES ---")
-    # Evaluamos exactamente las mismas configuraciones, pero ahora con las preguntas de test
+
     for config in tqdm(resultados_totales, desc="Test Ciego"):
         try:
             mrr_test = evaluar_configuracion(
@@ -192,19 +189,16 @@ def main_grid_search():
             config["MRR_test"] = mrr_test
         except Exception as e:
             print(f"Error evaluando la configuracion {config} en test: {e}")
-            config["MRR_test"] = 0.0 # Valor por defecto si falla
+            config["MRR_test"] = 0.0 
             
-    # Ordenamos los resultados basandonos en el rendimiento de validacion (lo correcto metodologicamente)
     resultados_totales.sort(key=lambda x: x["MRR_val"], reverse=True)
     
-    # --- IMPRESION DE LA TABLA FINAL ---
     print("\n" + "="*95)
     print(f"{'ESTRATEGIA':<12} | {'SIZE':<6} | {'OVERLAP':<7} | {'SPACE':<8} || {'MRR VAL':<10} | {'MRR TEST':<10} | {'DIFERENCIA':<10}")
     print("="*95)
     
     for res in resultados_totales:
         dif = res['MRR_val'] - res['MRR_test']
-        # Usamos un formato para que los numeros queden alineados
         print(f"{res['estrategia']:<12} | {res['chunk_size']:<6} | {res['chunk_overlap']:<7} | {res['hnsw_space']:<8} || "
               f"{res['MRR_val']:.4f}     | {res['MRR_test']:.4f}     | {'+' if dif < 0 else '-'}{abs(dif):.4f}")
     

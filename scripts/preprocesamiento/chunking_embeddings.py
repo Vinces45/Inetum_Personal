@@ -13,8 +13,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
 from tqdm import tqdm
-
-# --- CONFIGURACION DE RUTAS ---  
+ 
 BASE_DIR = Path(__file__).resolve().parent.parent     
 PROJECT_ROOT = BASE_DIR.parent 
 

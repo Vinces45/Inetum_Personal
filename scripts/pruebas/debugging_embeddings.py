@@ -3,7 +3,6 @@ import os
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 
-# --- CONFIGURACION ---
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent 
 DIR_DB = PROJECT_ROOT / "datos" /"base_datos_vectorial_alpha"
@@ -33,8 +32,6 @@ def realizar_test():
         print("PONER -1 SI NO QUIERES FILTRO")
         tipo_doc = input("¿Filtrar por tipo? (Escribe PCAP, PPT, o -1): ").strip().upper()
         
-        # ERROR CORREGIDO 1: Si pulsas Enter vacio al pedir un int(), el programa crashea. 
-        # Hay que capturar el string, comprobar si esta vacio, y convertirlo.
         def pedir_entero(mensaje):
             val = input(mensaje).strip()
             if not val or val == "-1": return -1
@@ -50,7 +47,6 @@ def realizar_test():
         tramitacion = input("Inserte tipo de tramitacion (Abierto Simplificado, Negociado sin publicidad, o -1): ").strip()
         
         lotes_input = input("Inserte si tiene lotes o no (S/N o -1): ").strip().upper()
-        # ERROR CORREGIDO 2: Logica condicional segura para booleanos
         lotes_bool = None
         if lotes_input == "S": lotes_bool = True
         elif lotes_input == "N": lotes_bool = False
@@ -62,7 +58,6 @@ def realizar_test():
             
         tipo_contrato = input("¿Filtrar por contrato? (Obras, Servicios, Suministros, o -1): ").strip().capitalize()
         
-        # Construimos un filtro complejo dinamicamente
         filtros_lista = []
         
         if tipo_doc in ["PCAP", "PPT"]:
@@ -71,8 +66,6 @@ def realizar_test():
         if tipo_contrato in ["Obras", "Servicios", "Suministros"]:
             filtros_lista.append({"tipo_contrato": tipo_contrato})
 
-        # CUIDADO AQUI: En tu script de metadatos la clave es "presupuesto_base_licitacion", no "presupuesto_base".
-        # Debes usar los nombres exactos que usaste en preprocesamiento.
         if presupuesto_base != -1:
             filtros_lista.append({"presupuesto_base_licitacion": presupuesto_base})
             
@@ -97,7 +90,6 @@ def realizar_test():
         if financiacion_europea_bool is not None:
             filtros_lista.append({"financiacion_europea": financiacion_europea_bool})
 
-        # Aplicamos la logica de filtrado de LangChain/Chroma ($and si hay varios)
         filtro_metadatos = None
         if len(filtros_lista) == 1:
             filtro_metadatos = filtros_lista[0]
@@ -110,7 +102,6 @@ def realizar_test():
             print("-> Buscando en toda la base de datos...")
 
         try:
-            # Recuperacion hibrida (Semantica + Metadatos)
             if filtro_metadatos:
                 resultados = vector_db.similarity_search_with_score(consulta, k=3, filter=filtro_metadatos)
             else:
@@ -123,7 +114,6 @@ def realizar_test():
                 print(f"RESULTADO #{i+1} | DISTANCIA L2: {score:.4f}")
                 print(f"ARCHIVO: {doc.metadata.get('fuente', 'Desconocido')} (Pag. {doc.metadata.get('pagina', 'N/A')})")
                 
-                # CUIDADO: Ajustado para que coincida con las claves de tu extraccion
                 meta_resumen = {
                     "exp": doc.metadata.get("expediente"),
                     "tipo": doc.metadata.get("tipo_contrato"),

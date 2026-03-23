@@ -1,6 +1,3 @@
-# EJECUTAR: ESTAR EN LA CARPETA RAIZ Y PONER ESTO: 
-# python -m scripts.optimizacion.evaluar_estrategias_chunking
-
 import json
 from pathlib import Path
 from tqdm import tqdm
@@ -39,7 +36,6 @@ def evaluar_mrr(vector_db, ground_truth, k_eval=5):
         for posicion, (doc, score) in enumerate(resultados):
             doc_id_obtenido = str(doc.metadata.get("doc_id", ""))
             
-            # Comprobamos si el documento recuperado es el correcto
             if doc_id_obtenido == id_esperado:
                 rr_actual = 1.0 / (posicion + 1)
                 break 
@@ -92,23 +88,20 @@ def main_ab_testing():
     splitter_v1 = chunkeador_v1()
     chunks_v1 = splitter_v1.split_documents(docs_base_v1)
     
-    # Usamos DB en memoria RAM para que sea ultra rapido
     db_v1 = Chroma(
         embedding_function=modelo_embeddings,
         collection_name="coleccion_v1"
     )
-    # Añadimos en lotes por si son muchos (CON RED DE SEGURIDAD)
+
     for i in tqdm(range(0, len(chunks_v1), 50), desc="Ingestando V1"):
         lote_actual = chunks_v1[i:i+50]
         try:
             db_v1.add_documents(lote_actual)
         except Exception as e:
-            # Si el lote entero falla por un chunk gigante, probamos uno a uno
             for chunk_ind in lote_actual:
                 try:
                     db_v1.add_documents([chunk_ind])
                 except Exception as ex:
-                    # Ignoramos el chunk problematico silenciosamente (o puedes poner un print)
                     pass
         
     mrr_v1 = evaluar_mrr(db_v1, preguntas_test)
@@ -119,9 +112,7 @@ def main_ab_testing():
     # ---------------------------------------------------------
     print("\n[Construyendo DB - Estrategia B: Markdown Semantico]")
     md_splitter, rec_splitter = chunkeador_v2()
-    # Aqui se aplica la conversion a markdown y el corte de Capa 1
     docs_semanticos_v2 = procesar_v2(DIR_PDFS_PCAP, DIR_PDFS_PPT, mapa_meta, md_splitter)
-    # Corte de Capa 2 (Respaldo)
     chunks_v2 = rec_splitter.split_documents(docs_semanticos_v2)
     
     db_v2 = Chroma(
@@ -139,8 +130,8 @@ def main_ab_testing():
                 except Exception as ex:
                     pass
                     
-        # Tu codigo de depuracion puede ir aqui sin problemas
-        if i == 0: # Imprimimos la depuracion solo en la primera iteracion
+        
+        if i == 0: 
             print("\n--- DEPURACION ESTRATEGIA B ---")
             muestra_chunk = chunks_v2[0]
             print(f"Contenido (primeros 100 chars): {muestra_chunk.page_content[:100]}...")
@@ -150,9 +141,6 @@ def main_ab_testing():
     mrr_v2 = evaluar_mrr(db_v2, preguntas_test)
     print(f"-> MRR Estrategia B: {mrr_v2:.4f}")
 
-    # ---------------------------------------------------------
-    # RESULTADOS
-    # ---------------------------------------------------------
     print("\n" + "="*50)
     print("RESULTADO FINAL DEL A/B TESTING")
     print("="*50)

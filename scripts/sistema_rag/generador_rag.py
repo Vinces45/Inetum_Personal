@@ -9,7 +9,6 @@ from sentence_transformers import CrossEncoder
 
 from scripts.modelo.pliego import BorradorPliego
 
-# --- CONFIGURACION DE RUTAS ---
 BASE_DIR = Path(__file__).resolve().parent      
 PROJECT_ROOT = BASE_DIR.parent.parent
 DIR_DB = PROJECT_ROOT / "datos" / "base_datos_vectorial"
@@ -77,14 +76,11 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_fi
     
     mejores_docs = [item[0] for item in resultados_reordenados[:k_final]]
     
-    # Formateamos directamente el string aqui
     return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
 
 
 def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, filtros=None):
-    """Genera una seccion desde cero usando RAG de 2 fases."""
     
-    # Obtenemos el texto ya masticado por el Re-Ranker
     contexto_texto = recuperar_con_reranker(
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
@@ -114,7 +110,6 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
     """
     prompt = ChatPromptTemplate.from_template(template)
 
-    # La cadena ahora es mucho mas simple de leer y depurar
     cadena_rag = prompt | llm | StrOutputParser()
     
     return cadena_rag.invoke({"contexto": contexto_texto, "pregunta": peticion_usuario})
@@ -122,21 +117,18 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
 def corregir_seccion_existente(vector_db, llm, modelo_reranker, titulo_seccion, texto_actual, feedback_usuario, filtros=None):
     """Reescribe una seccion existente aplicando el feedback del usuario y consultando la BD."""
     
-    # MEJORA 1: Optimizacion de busqueda. 
-    # Usamos el titulo y el feedback para anclar la busqueda semanticamente, ignorando el texto viejo.
     query_busqueda = f"Seccion {titulo_seccion}: {feedback_usuario}"
     
     contexto_texto = recuperar_con_reranker(
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
         query=query_busqueda, 
-        k_inicial=10, # Reducimos el ruido inicial
-        k_final=2,    # Nos quedamos solo con los 2 mejores chunks
+        k_inicial=10, 
+        k_final=2,   
         filtros=filtros, 
         tolerancia=0.2
     )
 
-    # MEJORA 2: Prompt blindado y contextualizado
     template_correccion = """
     Eres un Letrado experto en Contratacion Publica del Gobierno de La Rioja.
     Tu tarea es MODIFICAR la seccion titulada '{titulo}' basandote en las instrucciones del usuario.
@@ -204,7 +196,6 @@ def resumir_seccion(llm, titulo, texto):
 def consultar_duda_legal(vector_db, llm, modelo_reranker, pregunta, filtros=None):
     """Responde a una pregunta legal usando la BD vectorial sin modificar el pliego."""
     
-    # Buscamos en ChromaDB exactamente igual que al crear
     contexto_texto = recuperar_con_reranker(
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
