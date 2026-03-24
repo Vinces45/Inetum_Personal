@@ -1,141 +1,386 @@
+from typing import List, Optional
+
 import streamlit as st
 from langchain_ollama import ChatOllama
 from langchain_core.tools import tool
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langgraph.prebuilt import create_react_agent
 
-# Importamos tus clases y funciones
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from scripts.modelo.pliego import BorradorPliego
 from scripts.sistema_rag.generador_rag import (
     inicializar_bd, inicializar_reranker, consultar_duda_legal, 
-    generar_seccion_nueva, corregir_seccion_existente
+    generar_seccion_nueva, corregir_seccion_existente, recolectar_texto_rama, resumir_seccion
 )
 from scripts.modelo.exportador import exportar_a_word
+from scripts.modelo.esquemas_pydantic import PeticionSeccion, PeticionSubseccion
+
 
 # ==========================================
-# 1. DEFINICION DE HERRAMIENTAS (TOOLS)
+# 1. EL MOTOR (Cacheado para hilos y recargas)
 # ==========================================
+# st.cache_resource hace que esto cargue 1 sola vez y sea accesible por hilos secundarios
+@st.cache_resource(show_spinner="Arrancando el sistema...")
+def inicializar_motor():
+    class Motor:
+        pass
+    m = Motor()
+    m.db = inicializar_bd()
+    m.reranker = inicializar_reranker()
+    m.llm = ChatOllama(model="llama3.1", temperature=0.0)
+    m.documento = BorradorPliego()
+    return m
 
+# Llamamos a la funcion. Todos los hilos leeraan esta variable global.
+motor = inicializar_motor()
+
+# ==========================================
+# 2. DEFINICION DE HERRAMIENTAS (TOOLS)
+# ==========================================
 @tool
 def herramienta_ver_rutas() -> str:
+    """Devuelve las rutas de las secciones actuales. Usala antes de modificar, eliminar o si se pide crear una subseccion en la seccion solicitada."""
+    print("\n" + "="*50)
+    print("[TOOL CALL] 📍 Ejecutando: herramienta_ver_rutas")
+    
+    # Calculo
+    rutas = motor.documento.obtener_rutas_secciones()
+    
+    # Salida y formateo
+    if rutas:
+        respuesta_llm = f"Secciones actuales: {rutas}"
+        print(f"[TOOL LOG] 🟢 Datos extraidos: {len(rutas)} rutas encontradas.")
+        print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_llm}")
+    else:
+        respuesta_llm = "El documento esta vacio."
+        print("[TOOL LOG] 🟡 Estado: Arbol de nodos vacio.")
+        print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_llm}")
+        
+    print("="*50 + "\n")
+    return respuesta_llm
+
+@tool
+def herramienta_crear_secciones(secciones_a_crear: List[PeticionSeccion]) -> str:
     """
-    Devuelve las rutas de las secciones que existen actualmente en el borrador. 
-    Usala SIEMPRE antes de modificar o eliminar para saber la ruta exacta.
+    Crea una o multiples secciones (con o sin subsecciones) en el pliego.
+    Usa esta herramienta cuando el usuario pida redactar contenido nuevo.
     """
-    rutas = st.session_state.documento.obtener_rutas_secciones()
-    return f"Secciones actuales: {rutas}" if rutas else "El documento esta vacio."
+    print("\n" + "="*50)
+    print(f"[TOOL CALL] ✍️ Ejecutando: herramienta_crear_secciones")
+    print(f"[TOOL LOG] 🟢 Se han solicitado {len(secciones_a_crear)} secciones principales.")
+    
+    for seccion_obj in secciones_a_crear:
+        titulo_sec = seccion_obj.titulo
+        instruccion_sec = seccion_obj.instruccion_especifica
+        subsecciones = seccion_obj.subsecciones or []
+        
+        print(f"[TOOL LOG] --- Procesando Seccion: {titulo_sec} ---")
+        ruta_principal = [titulo_sec]
+        
+        if instruccion_sec or not subsecciones:
+            instruccion_final = instruccion_sec if instruccion_sec else f"Redacta el contenido de {titulo_sec}"
+            prompt_rag = f"Redacta la seccion '{titulo_sec}'. Instrucciones: {instruccion_final}"
+            print(f"[TOOL LOG] 🧠 Llamando al RAG para: {titulo_sec}")
+            
+            borrador = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag)
+            motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido=borrador)
+        else:
+            motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido="")
+
+        if subsecciones:
+            for sub_obj in subsecciones:
+                titulo_sub = sub_obj.titulo
+                instruccion_sub = sub_obj.instruccion_especifica or f"Redacta {titulo_sub}"
+                
+                print(f"[TOOL LOG]  -> Generando subseccion: {titulo_sub}")
+                prompt_rag_sub = f"Redacta la subseccion '{titulo_sub}' de la seccion '{titulo_sec}'. Instrucciones: {instruccion_sub}"
+                print(f"[TOOL LOG] 🧠 Llamando al RAG para: {titulo_sub}")
+                
+                borrador_sub = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag_sub)
+                ruta_hijo = [titulo_sec, titulo_sub]
+                motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_hijo, contenido=borrador_sub)
+                
+    respuesta_llm = f"Se han redactado y guardado correctamente {len(secciones_a_crear)} secciones."
+    print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_llm}")
+    print("="*50 + "\n")
+    
+    return respuesta_llm
+
+
+
+
+@tool
+def herramienta_modificar_seccion(ruta_exacta: str, instrucciones_cambio: str) -> str:
+    """
+    Modifica el contenido de una seccion o subseccion que ya existe en el pliego.
+    Usa 'herramienta_ver_rutas' primero para saber la 'ruta_exacta' (ej: '1. Objeto > 1.1. Garantias').
+    """
+    print("\n" + "="*50)
+    print(f"[TOOL CALL] ✏️ Ejecutando: herramienta_modificar_seccion")
+    print(f"[TOOL LOG] 🎯 Objetivo: '{ruta_exacta}'")
+    print(f"[TOOL LOG] 🗣️ Peticion: '{instrucciones_cambio}'")
+    
+    # 1. Programacion defensiva: Comprobar si el nodo existe antes de gastar tokens
+    texto_actual = motor.documento.buscar_texto_por_ruta(ruta_exacta)
+    
+    if not texto_actual:
+        respuesta_error = f"Error: No se encontro la ruta '{ruta_exacta}'. Usa herramienta_ver_rutas primero para ver las rutas validas."
+        print(f"[TOOL LOG] ❌ Fallo: La seccion no existe en el arbol.")
+        print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_error}")
+        print("="*50 + "\n")
+        return respuesta_error
+        
+    # 2. Llamada al LLM con RAG
+    print(f"[TOOL LOG] 🧠 Llamando al RAG para aplicar las correcciones...")
+    texto_corregido = corregir_seccion_existente(
+        vector_db=motor.db, 
+        llm=motor.llm, 
+        modelo_reranker=motor.reranker, 
+        titulo_seccion=ruta_exacta, 
+        texto_actual=texto_actual, 
+        feedback_usuario=instrucciones_cambio
+    )
+    
+    # 3. Parseo de la ruta y actualizacion en el arbol
+    # Asumimos que la ruta viene separada por '>' como hacias en tu orquestador
+    ruta_lista = [t.strip() for t in ruta_exacta.split(">")]
+    motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_lista, contenido=texto_corregido) 
+    
+    respuesta_exito = f"La seccion '{ruta_exacta}' ha sido modificada con exito."
+    print(f"[TOOL LOG] ✅ Arbol de nodos actualizado correctamente.")
+    print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_exito}")
+    print("="*50 + "\n")
+    
+    return respuesta_exito
+
+@tool
+def herramienta_eliminar_secciones(rutas_exactas: List[str]) -> str:
+    """
+    Elimina una o multiples secciones/subsecciones del documento.
+    Usa 'herramienta_ver_rutas' primero para obtener la lista de rutas exactas que debes borrar.
+    """
+    print("\n" + "="*50)
+    print("[TOOL CALL] 🗑️ Ejecutando: herramienta_eliminar_secciones")
+    print(f"[TOOL LOG] 🎯 Se ha pedido borrar {len(rutas_exactas)} rutas: {rutas_exactas}")
+    
+    resultados = []
+    
+    for ruta in rutas_exactas:
+        # Usamos tu misma logica defensiva
+        exito = motor.documento.eliminar_por_ruta(ruta)
+        
+        if exito:
+            mensaje = f"Exito: '{ruta}' eliminada correctamente."
+            resultados.append(mensaje)
+            print(f"[TOOL LOG] ✅ {mensaje}")
+        else:
+            mensaje = f"Error: No se encontro la ruta '{ruta}'."
+            resultados.append(mensaje)
+            print(f"[TOOL LOG] ❌ {mensaje}")
+
+    # Juntamos todos los resultados en un solo texto para que el LLM los lea
+    respuesta_final = "\n".join(resultados)
+    
+    print(f"[TOOL RETURN] 📤 Enviando al LLM el reporte de borrado.")
+    print("="*50 + "\n")
+    
+    return respuesta_final
+
+@tool
+def herramienta_resumir_seccion(ruta_exacta: Optional[str] = None) -> str:
+    """
+    Genera un resumen de una seccion especifica o de todo el pliego.
+    Si el usuario pide resumir TODO el documento, NO le pases ningun argumento (deja ruta_exacta vacio).
+    Si pide resumir una parte concreta, pasa la 'ruta_exacta' (ej: '1. Objeto > 1.1. Garantias').
+    Usa 'herramienta_ver_rutas' antes si no sabes el nombre exacto de la seccion.
+    """
+    print("\n" + "="*50)
+    print("[TOOL CALL] 📝 Ejecutando: herramienta_resumir_seccion")
+    
+    # CASO 1: Resumir TODO el documento (ruta_exacta es None o vacio)
+    if not ruta_exacta:
+        print("[TOOL LOG] 🎯 Objetivo: Resumir TODO el documento por ramas.")
+        if not motor.documento.secciones:
+            print("[TOOL LOG] ⚠️ El documento esta vacio.")
+            print("="*50 + "\n")
+            return "El documento esta vacio, no hay nada que resumir."
+        
+        resumenes_totales = []
+        for titulo_prin, nodo_prin in motor.documento.secciones.items():
+            print(f"[TOOL LOG] 🧠 Extrayendo y resumiendo rama: {titulo_prin}...")
+            texto_rama = recolectar_texto_rama(nodo_prin)
+            resumen = resumir_seccion(motor.llm, titulo_prin, texto_rama)
+            resumenes_totales.append(f"**Resumen de {titulo_prin}:**\n{resumen}")
+            
+        respuesta_final = "\n\n".join(resumenes_totales)
+        print("[TOOL LOG] ✅ Resumen global completado.")
+        print("="*50 + "\n")
+        return respuesta_final
+
+    # CASO 2: Resumir una seccion especifica
+    print(f"[TOOL LOG] 🎯 Objetivo: Resumir la ruta '{ruta_exacta}'")
+    titulos = [t.strip() for t in ruta_exacta.split(">")]
+    
+    # Navegacion manual del arbol (tu misma logica del orquestador)
+    nodo_actual = motor.documento.secciones.get(titulos[0])
+    for tit in titulos[1:]:
+        if nodo_actual and tit in nodo_actual.subsecciones:
+            nodo_actual = nodo_actual.subsecciones[tit]
+        else:
+            nodo_actual = None
+            break # Rompemos el bucle si nos perdemos en el arbol
+            
+    # Programacion defensiva si la ruta no existe
+    if not nodo_actual:
+        error_msg = f"Error: No se encontro la ruta '{ruta_exacta}'. Usa herramienta_ver_rutas para comprobar el nombre."
+        print(f"[TOOL LOG] ❌ {error_msg}")
+        print("="*50 + "\n")
+        return error_msg
+        
+    print(f"[TOOL LOG] 🧠 Extrayendo texto y resumiendo la seccion especifica...")
+    texto_rama = recolectar_texto_rama(nodo_actual)
+    resumen_especifico = resumir_seccion(motor.llm, ruta_exacta, texto_rama)
+    
+    respuesta_final = f"**Resumen de {ruta_exacta}:**\n{resumen_especifico}"
+    print("[TOOL LOG] ✅ Resumen especifico completado.")
+    print("="*50 + "\n")
+    
+    return respuesta_final
 
 @tool
 def herramienta_consultar_ley(pregunta: str) -> str:
-    """Busca informacion legal en la base de datos RAG para responder dudas del usuario."""
-    return consultar_duda_legal(
-        st.session_state.db_vectorial, 
-        st.session_state.llm, 
-        st.session_state.reranker, 
-        pregunta
-    )
-
-@tool
-def herramienta_crear_seccion(titulo: str, instrucciones: str) -> str:
     """
-    Redacta una seccion principal nueva usando RAG y la guarda en el borrador.
+    Busca informacion legal o normativa en la base de datos RAG de pliegos.
+    Usala SOLO cuando el usuario haga una pregunta explicita sobre pliegos, leyes, plazos o normativas.
     """
-    borrador = generar_seccion_nueva(
-        st.session_state.db_vectorial, 
-        st.session_state.llm, 
-        st.session_state.reranker, 
-        f"Redacta {titulo}. {instrucciones}"
+    print("\n" + "="*50)
+    print("[TOOL CALL] ⚖️ Ejecutando: herramienta_consultar_ley")
+    print(f"[TOOL LOG] 📥 Duda legal extraida: '{pregunta}'")
+    
+    print("[TOOL LOG] 🧠 Consultando ChromaDB y generando dictamen con Llama 3.1...")
+    
+    # Llamamos a tu funcion original usando nuestro motor global
+    respuesta = consultar_duda_legal(
+        vector_db=motor.db, 
+        llm=motor.llm, 
+        modelo_reranker=motor.reranker, 
+        pregunta=pregunta
     )
-    st.session_state.documento.actualizar_seccion_infinita([titulo], borrador)
-    return f"Seccion '{titulo}' creada y guardada con exito."
-
-@tool
-def herramienta_eliminar_seccion(ruta_exacta: str) -> str:
-    """Elimina una seccion usando su ruta exacta (ej: '1. Objeto > 1.1. Garantia')."""
-    exito = st.session_state.documento.eliminar_por_ruta(ruta_exacta)
-    return "Eliminada correctamente." if exito else "No se encontro la ruta."
+    
+    # Hacemos un pequeño truncado solo para la consola, para no ensuciar toda la pantalla
+    # si la respuesta legal es larguísima. Al LLM se le envia completa.
+    resumen_consola = respuesta[:150].replace('\n', ' ') + "..." if len(respuesta) > 150 else respuesta
+    
+    print(f"[TOOL LOG] ✅ Respuesta RAG obtenida: {resumen_consola}")
+    print("[TOOL RETURN] 📤 Enviando al LLM para que se la comunique al usuario.")
+    print("="*50 + "\n")
+    
+    return respuesta
 
 @tool
 def herramienta_exportar() -> str:
-    """Exporta el pliego a un documento Word (DOCX)."""
-    ruta = "datos/pliego_final.docx"
-    exportar_a_word(st.session_state.documento.secciones, ruta)
-    return f"Documento exportado en {ruta}"
+    """
+    Exporta el pliego actual a un documento de Word (DOCX).
+    Usa esta herramienta cuando el usuario pida descargar, guardar o exportar el documento final.
+    """
+    print("\n" + "="*50)
+    print("[TOOL CALL] 💾 Ejecutando: herramienta_exportar")
+    
+    # 1. Programacion defensiva: ¿Hay algo que exportar?
+    if not motor.documento.secciones:
+        error_msg = "Error: El documento esta vacio. No hay nada que exportar."
+        print(f"[TOOL LOG] ❌ {error_msg}")
+        print("="*50 + "\n")
+        return error_msg
+        
+    # 2. Definimos la ruta de salida
+    ruta_salida = "datos/pliego_final.docx"
+    print(f"[TOOL LOG] ⚙️ Generando archivo Word en: {ruta_salida}...")
+    
+    # 3. Llamamos a tu modulo exportador
+    try:
+        exportar_a_word(motor.documento.secciones, ruta_salida)
+        exito_msg = f"El documento ha sido exportado exitosamente como Word en la ruta local: {ruta_salida}"
+        print(f"[TOOL LOG] ✅ Exportacion completada con exito.")
+        print("="*50 + "\n")
+        return exito_msg
+        
+    except Exception as e:
+        error_critico = f"Error al exportar el documento: {str(e)}"
+        print(f"[TOOL LOG] 💥 FALLO CRITICO: {error_critico}")
+        print("="*50 + "\n")
+        return error_critico
 
-# Lista de herramientas disponibles para el agente
 tools = [
     herramienta_ver_rutas, 
+    herramienta_crear_secciones, 
+    herramienta_eliminar_secciones, 
+    herramienta_modificar_seccion,
+    herramienta_resumir_seccion,
     herramienta_consultar_ley, 
-    herramienta_crear_seccion, 
-    herramienta_eliminar_seccion,
     herramienta_exportar
 ]
 
 # ==========================================
-# 2. INICIALIZACION DEL SISTEMA (SE EJECUTA UNA VEZ)
+# 3. MEMORIA Y AGENTE (Estrictamente visual)
 # ==========================================
 st.set_page_config(page_title="Asistente de Pliegos", layout="wide")
 
-if "inicializado" not in st.session_state:
-    with st.spinner("Arrancando el sistema..."):
-        st.session_state.db_vectorial = inicializar_bd()
-        st.session_state.reranker = inicializar_reranker()
-        
-        st.session_state.llm = ChatOllama(model="llama3.1", temperature=0.0)
-        st.session_state.documento = BorradorPliego()
-        st.session_state.chat_history = []
-        
-        # Configuracion del Agente de LangChain
-        prompt_agente = ChatPromptTemplate.from_messages([
-            ("system", "Eres un Letrado Inteligente del Gobierno de La Rioja. Ayudas a redactar pliegos. Tienes herramientas para consultar la ley, y crear/modificar el documento. Si el usuario saluda, responde amablemente sin usar herramientas. Si te pide varias cosas (ej: crea esto y expórtalo), usa las herramientas en orden."),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-        
-        agente = create_tool_calling_agent(st.session_state.llm, tools, prompt_agente)
-        st.session_state.agent_executor = AgentExecutor(agent=agente, tools=tools, verbose=True)
-        st.session_state.inicializado = True
+# El historial si que va en session_state porque cada usuario tendra su propio chat
+if "chat_history" not in st.session_state:
+    instrucciones = (
+        "Eres un Letrado Inteligente del Gobierno de La Rioja. "
+        "REGLA 1: Si el usuario te saluda (ej: 'Hola', 'Buenos dias'), responde SOLAMENTE con un saludo amable. ESTA PROHIBIDO usar herramientas para saludos. "
+        "REGLA 2: Solo usa las herramientas cuando el usuario te pida explicitamente consultar la ley, redactar, borrar o exportar."
+    )
+    st.session_state.chat_history = [SystemMessage(content=instrucciones)]
+
+# El agente se crea rapidisimo conectando el LLM cacheado con las herramientas
+agente = create_react_agent(motor.llm, tools=tools)
 
 # ==========================================
-# 3. INTERFAZ GRAFICA (UI)
+# 4. INTERFAZ GRAFICA (UI)
 # ==========================================
-
-# Barra lateral para ver el documento en tiempo real
 with st.sidebar:
     st.header("Borrador Actual")
-    st.text_area("Vista previa", st.session_state.documento.mostrar_documento(), height=600)
+    st.text_area("Vista previa", motor.documento.mostrar_documento(), height=600)
 
 st.title("🏛️ Asistente de Pliegos - La Rioja")
 
-# Mostrar historial de chat
 for msg in st.session_state.chat_history:
-    role = "user" if isinstance(msg, HumanMessage) else "assistant"
+    # Ignoramos el mensaje del sistema
+    if isinstance(msg, SystemMessage):
+        continue
+        
+    # NUEVO: Ignoramos los mensajes internos de herramientas (tool) y las burbujas vacias
+    if msg.type == "tool" or not msg.content:
+        continue
+        
+    role = "user" if msg.type == "human" else "assistant"
     with st.chat_message(role):
         st.markdown(msg.content)
 
-# Caja de texto para el usuario
-if prompt_usuario := st.chat_input("Escribe tu peticion (ej: Hola, redacta la seccion de objeto del contrato)"):
-    
-    # 1. Mostrar mensaje del usuario
+if prompt_usuario := st.chat_input("Escribe tu peticion..."):
     with st.chat_message("user"):
         st.markdown(prompt_usuario)
     
-    # 2. Añadir a la memoria
     st.session_state.chat_history.append(HumanMessage(content=prompt_usuario))
     
-    # 3. Ejecutar el Agente
     with st.chat_message("assistant"):
-        with st.spinner("Pensando y ejecutando herramientas..."):
-            respuesta = st.session_state.agent_executor.invoke({
-                "input": prompt_usuario,
-                "chat_history": st.session_state.chat_history
+        with st.spinner("Pensando y ejecutando..."):
+            
+            respuesta = agente.invoke({
+                "messages": st.session_state.chat_history
             })
             
-            texto_respuesta = respuesta["output"]
-            st.markdown(texto_respuesta)
+            st.session_state.chat_history = respuesta["messages"]
             
-    # 4. Guardar respuesta en memoria
-    st.session_state.chat_history.append(AIMessage(content=texto_respuesta))
-    st.rerun() # Fuerza a recargar la UI para actualizar la barra lateral
+            # NUEVO: Buscamos el ultimo mensaje generado por la IA que tenga texto
+            for msg in reversed(st.session_state.chat_history):
+                if msg.type == "ai" and msg.content:
+                    st.markdown(msg.content)
+                    break
+            
+    st.rerun()

@@ -33,18 +33,18 @@ class BorradorPliego:
         self.archivo_respaldo = archivo_respaldo
         self.secciones = self.cargar_respaldo()
         
-    def actualizar_seccion(self, titulo_principal, contenido, titulo_subseccion=None):
-        """Actualiza o crea una seccion, soportando un nivel de subseccion."""
-        if titulo_principal not in self.secciones:
-            self.secciones[titulo_principal] = NodoSeccion(titulo_principal)
+    # def actualizar_seccion(self, titulo_principal, contenido, titulo_subseccion=None):
+    #     """Actualiza o crea una seccion, soportando un nivel de subseccion."""
+    #     if titulo_principal not in self.secciones:
+    #         self.secciones[titulo_principal] = NodoSeccion(titulo_principal)
             
-        if titulo_subseccion:
-            nodo_principal = self.secciones[titulo_principal]
-            nodo_principal.subsecciones[titulo_subseccion] = NodoSeccion(titulo_subseccion, contenido)
-        else:
-            self.secciones[titulo_principal].contenido = contenido
+    #     if titulo_subseccion:
+    #         nodo_principal = self.secciones[titulo_principal]
+    #         nodo_principal.subsecciones[titulo_subseccion] = NodoSeccion(titulo_subseccion, contenido)
+    #     else:
+    #         self.secciones[titulo_principal].contenido = contenido
             
-        self.guardar_respaldo()
+    #     self.guardar_respaldo()
 
     def actualizar_seccion_infinita(self, ruta_titulos, contenido):
         """
@@ -67,18 +67,18 @@ class BorradorPliego:
         nodo_actual.contenido = contenido
         self.guardar_respaldo()
         
-    def eliminar_seccion(self, titulo):
-        """Elimina una seccion principal."""
-        if titulo in self.secciones:
-            del self.secciones[titulo]
-            self.guardar_respaldo()
-            return True
-        return False
+    # def eliminar_seccion(self, titulo):
+    #     """Elimina una seccion principal."""
+    #     if titulo in self.secciones:
+    #         del self.secciones[titulo]
+    #         self.guardar_respaldo()
+    #         return True
+    #     return False
 
-    def obtener_seccion(self, titulo):
-        """Obtiene el texto de una seccion principal."""
-        nodo = self.secciones.get(titulo)
-        return nodo.contenido if nodo else None
+    # def obtener_seccion(self, titulo):
+    #     """Obtiene el texto de una seccion principal."""
+    #     nodo = self.secciones.get(titulo)
+    #     return nodo.contenido if nodo else None
         
     def mostrar_documento(self):
         """Recorre el arbol para mostrar el documento tabulado."""
@@ -118,20 +118,20 @@ class BorradorPliego:
                 pass
         return {}
     
-    def buscar_texto_seccion_recursivo(self, titulo_buscar, nodos=None):
-        """Busca recursivamente una seccion o subseccion por titulo y devuelve su texto."""
-        if nodos is None:
-            nodos = self.secciones
+    # def buscar_texto_seccion_recursivo(self, titulo_buscar, nodos=None):
+    #     """Busca recursivamente una seccion o subseccion por titulo y devuelve su texto."""
+    #     if nodos is None:
+    #         nodos = self.secciones
             
-        for tit, nodo in nodos.items():
-            if tit.lower() == titulo_buscar.lower():
-                return nodo.contenido
+    #     for tit, nodo in nodos.items():
+    #         if tit.lower() == titulo_buscar.lower():
+    #             return nodo.contenido
             
-            texto_hijo = self.buscar_texto_seccion_recursivo(titulo_buscar, nodo.subsecciones)
-            if texto_hijo is not None:
-                return texto_hijo
+    #         texto_hijo = self.buscar_texto_seccion_recursivo(titulo_buscar, nodo.subsecciones)
+    #         if texto_hijo is not None:
+    #             return texto_hijo
                 
-        return None
+    #     return None
     
     def obtener_rutas_secciones(self, nodos=None, ruta_actual=""):
         """Devuelve una lista con las rutas completas de todas las secciones."""
