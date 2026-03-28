@@ -11,4 +11,5 @@ __pycache__/
 # Archivos temporales
 datos/borradores_pliego/borrador_actual.json
 
-
+# Variables de entorno
+.env

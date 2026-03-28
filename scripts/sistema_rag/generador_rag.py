@@ -6,6 +6,8 @@ from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from sentence_transformers import CrossEncoder
+from dotenv import load_dotenv
+from langchain_openai import AzureChatOpenAI
 
 from scripts.modelo.pliego import BorradorPliego
 
@@ -23,9 +25,34 @@ def inicializar_bd():
         collection_name="pliegos_oficiales"
     )
 
+# def inicializar_llm():
+#     print("[SISTEMA] Conectando a Llama 3...")
+#     return ChatOllama(model="llama3.1", temperature=0.1)
+
 def inicializar_llm():
-    print("[SISTEMA] Conectando a Llama 3...")
-    return ChatOllama(model="llama3.1", temperature=0.1)
+    
+    # 1. Cargamos las variables del .env
+    load_dotenv()
+    
+    # 2. Extraemos las credenciales
+    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION")
+    
+    # 3. Validacion de seguridad
+    if not all([api_key, endpoint, api_version]):
+        raise ValueError("Faltan credenciales de Azure en el archivo .env. Revisa la configuracion.")
+        
+    # 4. Devolvemos la instancia configurada
+    return AzureChatOpenAI(
+        azure_deployment="gpt-5.1",
+        model_name="gpt-5.1",
+        api_version=api_version,
+        azure_endpoint=endpoint,
+        api_key=api_key,
+        temperature=0,
+        max_tokens=16384
+    )
 
 def inicializar_reranker():
     print("[SISTEMA] Cargando modelo Cross-Encoder (Re-Ranker)...")
