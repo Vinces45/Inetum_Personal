@@ -1,11 +1,15 @@
-import json
 import os
+import json
+import glob
+import shutil
+from datetime import datetime
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent.parent
 DIR_RESPALDO = PROJECT_ROOT / "datos" / "borradores_pliego" / "borrador_actual.json"
+DIR_HISTORIAL = PROJECT_ROOT / "datos" / "borradores_pliego" / "historial"
 
 class NodoSeccion:
     def __init__(self, titulo, contenido=""):
@@ -29,8 +33,12 @@ class NodoSeccion:
         return nodo
 
 class BorradorPliego:
-    def __init__(self, archivo_respaldo=DIR_RESPALDO):
+    def __init__(self, archivo_respaldo=DIR_RESPALDO, max_versiones = 5):
         self.archivo_respaldo = archivo_respaldo
+        
+        self.max_versiones = max_versiones
+        os.makedirs(DIR_HISTORIAL, exist_ok=True)
+
         self.secciones = self.cargar_respaldo()
         
     # def actualizar_seccion(self, titulo_principal, contenido, titulo_subseccion=None):
@@ -104,6 +112,8 @@ class BorradorPliego:
             datos = {t: nodo.to_dict() for t, nodo in self.secciones.items()}
             with open(self.archivo_respaldo, 'w', encoding='utf-8') as f:
                 json.dump(datos, f, indent=4, ensure_ascii=False)
+                
+            self._crear_punto_restauracion()
         except Exception as e:
             print(f"[ERROR PERSISTENCIA]: {e}")
 

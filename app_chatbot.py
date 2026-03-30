@@ -316,6 +316,55 @@ def herramienta_exportar() -> str:
         print("="*50 + "\n")
         return error_critico
 
+@tool
+def herramienta_ver_historial() -> str:
+    """
+    Muestra el historial de versiones guardadas del pliego.
+    Usala cuando el usuario pida ver las versiones anteriores, quiera deshacer un cambio o pregunte si se puede volver atras.
+    """
+    print("\n" + "="*50)
+    print("[TOOL CALL] 🕒 Ejecutando: herramienta_ver_historial")
+    
+    versiones = motor.documento.listar_versiones()
+    
+    if not versiones:
+        respuesta = "No hay versiones anteriores guardadas en el historial. Esta es la primera version."
+        print("[TOOL LOG] 🟡 Historial vacio.")
+        print("="*50 + "\n")
+        return respuesta
+        
+    lineas = ["Historial de versiones disponibles:"]
+    for v in versiones:
+        # El ID 0 es siempre la version inmediatamente anterior
+        lineas.append(f" - ID: {v['id']} | Fecha: {v['fecha']}")
+        
+    respuesta_llm = "\n".join(lineas)
+    print(f"[TOOL LOG] 🟢 {len(versiones)} versiones encontradas.")
+    print("="*50 + "\n")
+    return respuesta_llm
+
+
+@tool
+def herramienta_restaurar_version(id_version: int) -> str:
+    """
+    Restaura el pliego a una version anterior usando su ID.
+    OBLIGATORIO: Usa 'herramienta_ver_historial' primero para obtener el ID correcto si el usuario no te lo ha dado de forma explicita.
+    """
+    print("\n" + "="*50)
+    print(f"[TOOL CALL] ⏪ Ejecutando: herramienta_restaurar_version (ID: {id_version})")
+    
+    exito, fecha = motor.documento.restaurar_version(id_version)
+    
+    if exito:
+        respuesta = f"Exito: El documento ha sido restaurado correctamente a la version del {fecha}."
+        print(f"[TOOL LOG] ✅ Restaurado con exito a {fecha}.")
+    else:
+        respuesta = f"Error: No se pudo encontrar o restaurar la version con ID {id_version}. Revisa si el ID es correcto."
+        print(f"[TOOL LOG] ❌ Fallo al restaurar ID {id_version}.")
+        
+    print("="*50 + "\n")
+    return respuesta
+
 tools = [
     herramienta_ver_rutas, 
     herramienta_crear_secciones, 
@@ -323,7 +372,9 @@ tools = [
     herramienta_modificar_seccion,
     herramienta_resumir_seccion,
     herramienta_consultar_ley, 
-    herramienta_exportar
+    herramienta_exportar,
+    herramienta_ver_historial,
+    herramienta_restaurar_version
 ]
 
 # ==========================================
