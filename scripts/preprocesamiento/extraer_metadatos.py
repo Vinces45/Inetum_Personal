@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 import fitz
+import docx
 
 class DatoTexto(BaseModel):
     resultado: Optional[str] = Field(default=None, description="El texto exacto extraido.")
@@ -249,6 +250,16 @@ def procesar_documento(ruta, llm):
         # texto_limpio = limpiar_texto_basico(texto_completo)
 
         texto_completo = ""
+
+        if ruta.lower().endswith(".pdf"):
+            with fitz.open(ruta) as doc:
+                for pagina in doc:
+                    texto_completo += pagina.get_text("text") + "\n"
+                    
+        elif ruta.lower().endswith(".docx"):
+            doc_word = docx.Document(ruta)
+            # Juntamos todos los parrafos del Word con un salto de linea
+            texto_completo = "\n".join([p.text for p in doc_word.paragraphs if p.text.strip()])
         with fitz.open(ruta) as doc:
             for pagina in doc:
                 texto_completo += pagina.get_text("text") +"\n"  
@@ -273,7 +284,6 @@ def procesar_documento(ruta, llm):
         datos_finales["procedimiento"] = extraer_procedimiento(texto_limpio, llm)
         datos_finales["lotes"] = extraer_lotes(texto_limpio, llm)
         datos_finales["financiacion_europea"] = extraer_financiacion_europea(texto_limpio, llm)
-        datos_finales["origen"] = "oficial"
 
         datos_finales = {k: v for k, v in datos_finales.items() if v is not None}
 

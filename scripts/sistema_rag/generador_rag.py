@@ -81,7 +81,45 @@ def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
         return condiciones[0]
     return {"$and": condiciones}
 
-def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0):
+# def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0, castigo_generado=2.0):
+#     search_kwargs = {"k": k_inicial}
+#     if filtros:
+#         filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=tolerancia)
+#         if filtros_procesados:
+#             search_kwargs["filter"] = filtros_procesados
+
+#     # Fase 1: Retrieval con Chroma
+#     docs_brutos = vector_db.similarity_search(query, **search_kwargs)
+    
+#     if not docs_brutos:
+#         return "Sin contexto."
+
+#     # Fase 2: Re-Ranking
+#     pares_evaluacion = [[query, doc.page_content] for doc in docs_brutos]
+#     puntuaciones = modelo_reranker.predict(pares_evaluacion)
+
+#     # Modificación a documentos generados por IA
+#     resultados_evaluados = []
+#     for doc, nota in zip(docs_brutos, puntuaciones):
+#         # Obtenemos el origen (si no lo tiene por ser un doc antiguo, asumimos 'original')
+#         origen = doc.metadata.get("origen", "original")
+        
+#         nota_final = nota
+#         # Si fue generado por IA, le restamos los puntos
+#         if origen == "generado":
+#             nota_final = nota - castigo_generado
+            
+#         resultados_evaluados.append((doc, nota_final))
+
+    
+#     resultados_reordenados = list(zip(docs_brutos, puntuaciones))
+#     resultados_reordenados.sort(key=lambda x: x[1], reverse=True)
+    
+#     mejores_docs = [item[0] for item in resultados_reordenados[:k_final]]
+    
+#     return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
+
+def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0, castigo_generado=2.0):
     search_kwargs = {"k": k_inicial}
     if filtros:
         filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=tolerancia)
@@ -97,13 +135,35 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_fi
     # Fase 2: Re-Ranking
     pares_evaluacion = [[query, doc.page_content] for doc in docs_brutos]
     puntuaciones = modelo_reranker.predict(pares_evaluacion)
+
+    # Modificacion a documentos generados por IA
+    resultados_evaluados = []
+    for doc, nota in zip(docs_brutos, puntuaciones):
+        origen = doc.metadata.get("origen", "original")
+        nota_final = nota
+        if origen == "generado":
+            nota_final = nota - castigo_generado
+            
+        resultados_evaluados.append((doc, nota_final))
+
+    # CORRECCION: Ordenamos usando la lista evaluada (con el castigo aplicado)
+    resultados_evaluados.sort(key=lambda x: x[1], reverse=True)
     
-    resultados_reordenados = list(zip(docs_brutos, puntuaciones))
-    resultados_reordenados.sort(key=lambda x: x[1], reverse=True)
+    mejores_docs = [item[0] for item in resultados_evaluados[:k_final]]
     
-    mejores_docs = [item[0] for item in resultados_reordenados[:k_final]]
+    # INYECCION DE FUENTES: Pegamos los metadatos al texto antes de unirlo
+    textos_finales = []
+    for i, doc in enumerate(mejores_docs):
+        fuente = doc.metadata.get("fuente", "Desconocida")
+        pagina = doc.metadata.get("pagina", "N/A")
+        origen = doc.metadata.get("origen", "original")
+        
+        # Creamos la cabecera que leera el LLM
+        etiqueta = f"[FUENTE {i+1}: Archivo '{fuente}', Pagina {pagina}, Origen: {origen.upper()}]"
+        
+        textos_finales.append(f"{etiqueta}\n{doc.page_content}")
     
-    return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
+    return "\n\n---\n\n".join(textos_finales)
 
 
 def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, filtros=None):
@@ -220,6 +280,42 @@ def resumir_seccion(llm, titulo, texto):
     
     return cadena.invoke({"titulo": titulo, "texto": texto})
 
+# def consultar_duda_legal(vector_db, llm, modelo_reranker, pregunta, filtros=None):
+#     """Responde a una pregunta legal usando la BD vectorial sin modificar el pliego."""
+    
+#     contexto_texto = recuperar_con_reranker(
+#         vector_db=vector_db, 
+#         modelo_reranker=modelo_reranker, 
+#         query=pregunta, 
+#         k_inicial=10, 
+#         k_final=3, 
+#         filtros=filtros, 
+#         tolerancia=0.0
+#     )
+
+#     template = """
+#     Eres un Letrado Consultor del Gobierno de La Rioja.
+#     Responde a la duda legal del usuario basandote UNICAMENTE en el contexto proporcionado.
+    
+#     CONTEXTO NORMATIVO:
+#     {contexto}
+
+#     PREGUNTA DEL USUARIO:
+#     {pregunta}
+
+#     REGLAS:
+#     1. Responde de forma clara, didactica y directa.
+#     2. Si el contexto dice "Sin contexto", responde: "No he encontrado informacion sobre esto en la normativa base."
+#     3. Cita el articulo o la ley si aparece en el contexto.
+    
+#     RESPUESTA LEGAL:
+#     """
+    
+#     prompt = ChatPromptTemplate.from_template(template)
+#     cadena = prompt | llm | StrOutputParser()
+    
+#     return cadena.invoke({"contexto": contexto_texto, "pregunta": pregunta})
+
 def consultar_duda_legal(vector_db, llm, modelo_reranker, pregunta, filtros=None):
     """Responde a una pregunta legal usando la BD vectorial sin modificar el pliego."""
     
@@ -246,7 +342,8 @@ def consultar_duda_legal(vector_db, llm, modelo_reranker, pregunta, filtros=None
     REGLAS:
     1. Responde de forma clara, didactica y directa.
     2. Si el contexto dice "Sin contexto", responde: "No he encontrado informacion sobre esto en la normativa base."
-    3. Cita el articulo o la ley si aparece en el contexto.
+    3. CITA OBLIGATORIA: Al final de tu explicacion, o entre parentesis, debes citar la fuente exacta usando las etiquetas [FUENTE X] que aparecen en el texto.
+       Ejemplo: "El plazo es de 15 dias (Fuente 1: Archivo 'pliego_condiciones.pdf', Pagina 4)."
     
     RESPUESTA LEGAL:
     """
