@@ -1,10 +1,12 @@
 from docx import Document
 from docx.shared import Pt
-import os
+import io
 
-def exportar_a_word(diccionario_secciones, ruta_salida="pliego_generado.docx"):
-
-    print(f"\n[SISTEMA] Generando documento Word en: {ruta_salida}")
+def generar_bytes_word(diccionario_secciones):
+    """
+    Genera un documento Word en memoria y devuelve los bytes 
+    para que Streamlit pueda descargarlo.
+    """
     doc = Document()
     
     titulo_doc = doc.add_heading('PLIEGO DE PRESCRIPCIONES TECNICAS', 0)
@@ -24,10 +26,11 @@ def exportar_a_word(diccionario_secciones, ruta_salida="pliego_generado.docx"):
 
     procesar_nodos(diccionario_secciones)
     
-    try:
-        os.makedirs(os.path.dirname(os.path.abspath(ruta_salida)), exist_ok=True)
-        doc.save(ruta_salida)
-        return True
-    except Exception as e:
-        print(f"[ERROR EXPORTACION]: {e}")
-        return False
+    # NUEVO: Guardar en un buffer de memoria en lugar del disco duro
+    buffer_memoria = io.BytesIO()
+    doc.save(buffer_memoria)
+    
+    # Mover el puntero del buffer al principio antes de leerlo
+    buffer_memoria.seek(0) 
+    
+    return buffer_memoria

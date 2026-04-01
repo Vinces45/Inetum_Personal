@@ -273,6 +273,7 @@ def procesar_documento(ruta, llm):
         datos_finales["procedimiento"] = extraer_procedimiento(texto_limpio, llm)
         datos_finales["lotes"] = extraer_lotes(texto_limpio, llm)
         datos_finales["financiacion_europea"] = extraer_financiacion_europea(texto_limpio, llm)
+        datos_finales["origen"] = "oficial"
 
         datos_finales = {k: v for k, v in datos_finales.items() if v is not None}
 

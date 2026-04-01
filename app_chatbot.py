@@ -15,7 +15,7 @@ from scripts.sistema_rag.generador_rag import (
     generar_seccion_nueva, corregir_seccion_existente, recolectar_texto_rama, resumir_seccion
 
 )
-from scripts.modelo.exportador import exportar_a_word
+from scripts.modelo.exportador import generar_bytes_word
 from scripts.modelo.esquemas_pydantic import PeticionSeccion, PeticionSubseccion
 
 
@@ -37,6 +37,8 @@ def inicializar_motor():
 
 # Llamamos a la funcion. Todos los hilos leeraan esta variable global.
 motor = inicializar_motor()
+if "ia_trabajando" not in st.session_state:
+    st.session_state.ia_trabajando = False
 
 # ==========================================
 # 2. DEFINICION DE HERRAMIENTAS (TOOLS)
@@ -291,30 +293,21 @@ def herramienta_exportar() -> str:
     print("\n" + "="*50)
     print("[TOOL CALL] 💾 Ejecutando: herramienta_exportar")
     
-    # 1. Programacion defensiva: ¿Hay algo que exportar?
     if not motor.documento.secciones:
         error_msg = "Error: El documento esta vacio. No hay nada que exportar."
         print(f"[TOOL LOG] ❌ {error_msg}")
         print("="*50 + "\n")
         return error_msg
         
-    # 2. Definimos la ruta de salida
-    ruta_salida = "datos/pliego_final.docx"
-    print(f"[TOOL LOG] ⚙️ Generando archivo Word en: {ruta_salida}...")
+    exito_msg = (
+        "El documento esta listo. Dile al usuario que puede descargarlo "
+        "haciendo clic en el boton 'Descargar Pliego en Word' que ha aparecido "
+        "en la barra lateral izquierda."
+    )
     
-    # 3. Llamamos a tu modulo exportador
-    try:
-        exportar_a_word(motor.documento.secciones, ruta_salida)
-        exito_msg = f"El documento ha sido exportado exitosamente como Word en la ruta local: {ruta_salida}"
-        print(f"[TOOL LOG] ✅ Exportacion completada con exito.")
-        print("="*50 + "\n")
-        return exito_msg
-        
-    except Exception as e:
-        error_critico = f"Error al exportar el documento: {str(e)}"
-        print(f"[TOOL LOG] 💥 FALLO CRITICO: {error_critico}")
-        print("="*50 + "\n")
-        return error_critico
+    print("[TOOL LOG] ✅ Indicando al LLM que redirija a la UI.")
+    print("="*50 + "\n")
+    return exito_msg
 
 @tool
 def herramienta_ver_historial() -> str:
@@ -345,14 +338,27 @@ def herramienta_ver_historial() -> str:
 
 
 @tool
-def herramienta_restaurar_version(id_version: int) -> str:
+def herramienta_restaurar_version(id_version: int, confirmacion_usuario: bool = False) -> str:
     """
     Restaura el pliego a una version anterior usando su ID.
-    OBLIGATORIO: Usa 'herramienta_ver_historial' primero para obtener el ID correcto si el usuario no te lo ha dado de forma explicita.
+    REGLA CRITICA: El parametro 'confirmacion_usuario' debe ser False por defecto. 
+    SOLO puedes ponerlo a True si le has advertido al usuario de las consecuencias y este ha respondido afirmativamente.
     """
     print("\n" + "="*50)
-    print(f"[TOOL CALL] ⏪ Ejecutando: herramienta_restaurar_version (ID: {id_version})")
+    print(f"[TOOL CALL] ⏪ Ejecutando: herramienta_restaurar_version (ID: {id_version}, Confirmado: {confirmacion_usuario})")
     
+    # 1. BARRERA DE SEGURIDAD (La herramienta se niega a actuar)
+    if not confirmacion_usuario:
+        alerta = (
+            f"SISTEMA BLOQUEADO: No puedes restaurar la version {id_version} todavia. "
+            "Debes decirle al usuario: '¿Estas completamente seguro de que quieres cargar esta version? Se perderan los cambios no guardados.' "
+            "Si el usuario responde que si, vuelve a llamar a esta herramienta pasando confirmacion_usuario=True."
+        )
+        print("[TOOL LOG] 🛑 Bloqueado por falta de confirmacion. Obligando al LLM a preguntar.")
+        print("="*50 + "\n")
+        return alerta
+
+    # 2. EJECUCION REAL (Si ya tenemos el True)
     exito, fecha = motor.documento.restaurar_version(id_version)
     
     if exito:
@@ -414,6 +420,22 @@ agente = create_react_agent(motor.llm, tools=tools)
 with st.sidebar:
     st.header("Borrador Actual")
     st.text_area("Vista previa", motor.documento.mostrar_documento(), height=600)
+    
+    # NUEVO: Boton de descarga nativo
+    if motor.documento.secciones: # Solo mostramos el boton si hay algo que descargar
+        st.markdown("---")
+        # Generamos el archivo en memoria
+        archivo_word_bytes = generar_bytes_word(motor.documento.secciones)
+        
+        # El componente de Streamlit que gestiona la ventana de "Guardar como"
+        st.download_button(
+            label="Descargar Pliego en Word",
+            data=archivo_word_bytes,
+            file_name="pliego.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            disabled=st.session_state.ia_trabajando 
+        )
 
 st.title("🏛️ Asistente de Pliegos - La Rioja")
 
@@ -438,7 +460,8 @@ if prompt_usuario := st.chat_input("Escribe tu peticion..."):
     
     with st.chat_message("assistant"):
         with st.spinner("Pensando y ejecutando..."):
-            
+            st.session_state.ia_trabajando = True
+
             respuesta = agente.invoke({
                 "messages": st.session_state.chat_history
             })
@@ -450,5 +473,6 @@ if prompt_usuario := st.chat_input("Escribe tu peticion..."):
                 if msg.type == "ai" and msg.content:
                     st.markdown(msg.content)
                     break
+            st.session_state.ia_trabajando = False
             
     st.rerun()
