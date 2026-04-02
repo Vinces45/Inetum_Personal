@@ -112,8 +112,9 @@ class BorradorPliego:
             datos = {t: nodo.to_dict() for t, nodo in self.secciones.items()}
             with open(self.archivo_respaldo, 'w', encoding='utf-8') as f:
                 json.dump(datos, f, indent=4, ensure_ascii=False)
-                
+
             self._crear_punto_restauracion()
+
         except Exception as e:
             print(f"[ERROR PERSISTENCIA]: {e}")
 
@@ -206,3 +207,69 @@ class BorradorPliego:
             return True
             
         return False
+
+
+    def crear_punto_restauracion(self):
+        """Copia el borrador actual al historial con marca de tiempo."""
+        if not os.path.exists(self.archivo_respaldo):
+            return
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ruta_version = DIR_HISTORIAL / f"borrador_{timestamp}.json"
+        
+        shutil.copy2(self.archivo_respaldo, ruta_version)
+        self._limpiar_historial()
+        
+
+    def limpiar_historial(self):
+        """Borra las versiones antiguas manteniendo solo el limite (max_versiones)."""
+        # Obtenemos todos los archivos ordenados del mas antiguo al mas nuevo
+        archivos = sorted(glob.glob(str(DIR_HISTORIAL / "borrador_*.json")))
+        
+        while len(archivos) > self.max_versiones:
+            archivo_a_borrar = archivos.pop(0) 
+            try:
+                os.remove(archivo_a_borrar)
+            except Exception as e:
+                print(f"[ERROR HISTORIAL]: No se pudo borrar {archivo_a_borrar}: {e}")
+
+    def listar_versiones(self):
+        """Devuelve las versiones disponibles para que el LLM o usuario las vea."""
+        # Obtenemos archivos ordenados del mas NUEVO al mas VIEJO
+        archivos = sorted(glob.glob(str(DIR_HISTORIAL / "borrador_*.json")), reverse=True)
+        versiones = []
+        
+        for i, ruta in enumerate(archivos):
+            nombre_archivo = os.path.basename(ruta)
+            # Extraemos la fecha del string del archivo
+            fecha_str = nombre_archivo.replace("borrador_", "").replace(".json", "")
+            try:
+                fecha_obj = datetime.strptime(fecha_str, "%Y%m%d_%H%M%S")
+                fecha_formateada = fecha_obj.strftime("%d/%m/%Y a las %H:%M:%S")
+            except ValueError:
+                fecha_formateada = "Fecha desconocida"
+                
+            versiones.append({
+                "id": i, # El ID 0 siempre es la version inmediatamente anterior
+                "ruta": ruta,
+                "fecha": fecha_formateada
+            })
+            
+        return versiones
+        
+    def restaurar_version(self, id_version):
+        """Carga una version anterior y sobreescribe el estado actual."""
+        versiones = self.listar_versiones()
+        
+        if 0 <= id_version < len(versiones):
+            ruta_historica = versiones[id_version]["ruta"]
+            
+            # 1. Sobreescribir el archivo principal con la version historica
+            shutil.copy2(ruta_historica, self.archivo_respaldo)
+            
+            # 2. Recargar el arbol de nodos en memoria
+            self.secciones = self.cargar_respaldo()
+            
+            return True, versiones[id_version]["fecha"]
+            
+        return False, None

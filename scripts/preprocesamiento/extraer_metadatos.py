@@ -259,10 +259,7 @@ def procesar_documento(ruta, llm):
         elif ruta.lower().endswith(".docx"):
             doc_word = docx.Document(ruta)
             # Juntamos todos los parrafos del Word con un salto de linea
-            texto_completo = "\n".join([p.text for p in doc_word.paragraphs if p.text.strip()])
-        with fitz.open(ruta) as doc:
-            for pagina in doc:
-                texto_completo += pagina.get_text("text") +"\n"  
+            texto_completo = "\n".join([p.text for p in doc_word.paragraphs if p.text.strip()])  
 
         texto_limpio = limpiar_texto_basico(texto_completo)   
 

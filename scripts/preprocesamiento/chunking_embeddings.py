@@ -102,7 +102,8 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_metadatos):
                         "fuente": archivo,
                         "doc_id": id_actual if id_actual else "unknown",
                         "tipo_documento": tipo_archivo,
-                        "pagina": pagina.number+1 
+                        "pagina": pagina.number+1,
+                        "origen": "original"
                     }
                     tipos_permitidos = (str, int, float, bool)
                     for clave, valor in datos_jsonl.items():

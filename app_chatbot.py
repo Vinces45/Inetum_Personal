@@ -7,6 +7,9 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 
+from scripts.sistema_rag.rag_efimero import crear_rag_temporal
+from langchain_ollama import OllamaEmbeddings
+
 import warnings
 
 from scripts.sistema_rag.ingestor_dinamico import ingestar_documento_individual
@@ -534,9 +537,6 @@ with st.sidebar:
         # El usuario decide si activar esta funcion con este interruptor
         usar_rag_efimero = False # Por defecto desactivado
         if pdf_efimero:
-            import os
-            from scripts.sistema_rag.rag_efimero import crear_rag_temporal
-            from langchain_ollama import OllamaEmbeddings
             
             usar_rag_efimero = st.toggle("Modo: Preguntar al PDF Adjunto", value=True)
             
