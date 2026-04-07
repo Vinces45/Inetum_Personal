@@ -12,6 +12,8 @@ from langchain_ollama import OllamaEmbeddings
 
 import warnings
 
+from langchain_community.callbacks.manager import get_openai_callback
+
 from scripts.sistema_rag.ingestor_dinamico import ingestar_documento_individual
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -509,6 +511,8 @@ agente = create_react_agent(motor.llm, tools=tools)
 
 # La barra lateral se queda fuera de los tabs para que sea siempre visible
 with st.sidebar:
+
+    usar_rag_efimero = False
     st.header("Borrador Actual")
     st.text_area("Vista previa", motor.documento.mostrar_documento(), height=600)
     
@@ -535,7 +539,7 @@ with st.sidebar:
         pdf_efimero = st.file_uploader("Subir PDF Temporal", type=["pdf"], key="uploader_efimero")
 
         # El usuario decide si activar esta funcion con este interruptor
-        usar_rag_efimero = False # Por defecto desactivado
+         # Por defecto desactivado
         if pdf_efimero:
             
             usar_rag_efimero = st.toggle("Modo: Preguntar al PDF Adjunto", value=True)
@@ -588,25 +592,36 @@ with tab_chat:
         with st.chat_message("assistant"):
             with st.spinner("Pensando y ejecutando"):
                 st.session_state.ia_trabajando = True
+                # LOGICA DE ENRUTAMIENTO Y CONTADOR DE COSTES
+                with get_openai_callback() as cb:
                 
-                # LOGICA DE ENRUTAMIENTO (AQUI DECIDIMOS QUE BASE DE DATOS USAR)
-                if usar_rag_efimero and "cadena_efimera" in st.session_state:
-                    # Camino A: Pregunta al PDF de la RAM
-                    res_efimera = st.session_state.cadena_efimera.invoke({"input": prompt_usuario})
-                    txt_final = res_efimera["answer"]
-                    st.session_state.chat_history.append(AIMessage(content=txt_final))
-                    st.markdown(txt_final)
-                else:
-                    # Camino B: Tu agente normal que usa ChromaDB del disco
-                    respuesta = agente.invoke({"messages": st.session_state.chat_history})
-                    st.session_state.chat_history = respuesta["messages"]
+                    # LOGICA DE ENRUTAMIENTO (AQUI DECIDIMOS QUE BASE DE DATOS USAR)
+                    if usar_rag_efimero and "cadena_efimera" in st.session_state:
+                        # Camino A: Pregunta al PDF de la RAM
+                        res_efimera = st.session_state.cadena_efimera.invoke({"input": prompt_usuario})
+                        txt_final = res_efimera["answer"]
+                        st.session_state.chat_history.append(AIMessage(content=txt_final))
+                        st.markdown(txt_final)
+                    else:
+                        # Camino B: Tu agente normal que usa ChromaDB del disco
+                        respuesta = agente.invoke({"messages": st.session_state.chat_history})
+                        st.session_state.chat_history = respuesta["messages"]
+                        
+                        for msg in reversed(st.session_state.chat_history):
+                            if msg.type == "ai" and msg.content:
+                                st.markdown(msg.content)
+                                break
                     
-                    for msg in reversed(st.session_state.chat_history):
-                        if msg.type == "ai" and msg.content:
-                            st.markdown(msg.content)
-                            break
-                
-                st.session_state.ia_trabajando = False
+                    # REPORTAMOS EL GASTO POR CONSOLA AL TERMINAR
+                    print("\n" + "="*50)
+                    print("💸 REPORTE DE COSTES DE LA PETICION (AZURE)")
+                    print(f"Tokens de entrada (Prompt): {cb.prompt_tokens}")
+                    print(f"Tokens de salida (Answer):  {cb.completion_tokens}")
+                    print(f"Tokens Totales:             {cb.total_tokens}")
+                    print(f"Coste estimado (EUR):       €{((cb.prompt_tokens/1000000)*1.09) + ((cb.completion_tokens/1000000)*8.69)}")
+                    print("="*50 + "\n")
+
+                    st.session_state.ia_trabajando = False
                 
         st.rerun()
 

@@ -149,6 +149,9 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_fi
     # CORRECCION: Ordenamos usando la lista evaluada (con el castigo aplicado)
     resultados_evaluados.sort(key=lambda x: x[1], reverse=True)
     
+    for doc, nota_original, nota_castigada in zip(docs_brutos, puntuaciones, [n[1] for n in resultados_evaluados]):
+        print(f"[DEBUG RERANKER] Origen: {doc.metadata.get('origen')} | Nota original: {nota_original:.2f} | Nota final: {nota_castigada:.2f}")
+
     mejores_docs = [item[0] for item in resultados_evaluados[:k_final]]
     
     # INYECCION DE FUENTES: Pegamos los metadatos al texto antes de unirlo

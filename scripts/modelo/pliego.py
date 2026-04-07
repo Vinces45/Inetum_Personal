@@ -113,7 +113,7 @@ class BorradorPliego:
             with open(self.archivo_respaldo, 'w', encoding='utf-8') as f:
                 json.dump(datos, f, indent=4, ensure_ascii=False)
 
-            self._crear_punto_restauracion()
+            self.crear_punto_restauracion()
 
         except Exception as e:
             print(f"[ERROR PERSISTENCIA]: {e}")
