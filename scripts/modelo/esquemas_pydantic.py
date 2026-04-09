@@ -90,3 +90,5 @@ class PlanOrquestador(BaseModel):
         description="Si la accion es 'consultar', extrae aqui la duda legal exacta del usuario."
     )
     
+
+    COHERE_API_KEY="IcCW78juLuBuFhxERyqC61EvelhrxYAgYuEZWXta"
