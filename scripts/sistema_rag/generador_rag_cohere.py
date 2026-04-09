@@ -9,6 +9,9 @@ from sentence_transformers import CrossEncoder
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 
+from langchain_cohere import CohereRerank
+from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
+
 from scripts.modelo.pliego import BorradorPliego
 
 BASE_DIR = Path(__file__).resolve().parent      
@@ -55,8 +58,17 @@ def inicializar_llm():
     )
 
 def inicializar_reranker():
-    print("[SISTEMA] Cargando modelo Cross-Encoder Multilingue local...")
-    return CrossEncoder('cross-encoder/mmarco-mMiniLMv2-L12-H384-v1')
+    print("[SISTEMA] Conectando a la API de Cohere Rerank...")
+    api_key = os.environ.get("COHERE_API_KEY")
+    
+    if not api_key:
+        raise ValueError("Falta la clave COHERE_API_KEY en el archivo .env")
+        
+    return CohereRerank(
+        cohere_api_key=api_key, 
+        model="rerank-multilingual-v3.0", 
+        top_n=3 
+    )
 
 def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
     if not filtros:
@@ -119,54 +131,35 @@ def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
     
 #     return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
 
-def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0, castigo_generado=2.0):
+def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, filtros=None, tolerancia=0.0):
+    
+    # 1. Preparamos los parametros para la busqueda en Chroma (Fase 1)
     search_kwargs = {"k": k_inicial}
     if filtros:
         filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=tolerancia)
         if filtros_procesados:
             search_kwargs["filter"] = filtros_procesados
 
-    # Fase 1: Retrieval con Chroma
-    docs_brutos = vector_db.similarity_search(query, **search_kwargs)
+    # 2. Convertimos Chroma en un "Retriever" de Langchain
+    retriever_base = vector_db.as_retriever(search_kwargs=search_kwargs)
     
-    if not docs_brutos:
+    # 3. Ensamblamos el pipeline: Recuperacion + Compresion (Re-Ranking)
+    compression_retriever = ContextualCompressionRetriever(
+        base_compressor=modelo_reranker, 
+        base_retriever=retriever_base
+    )
+    
+    # 4. Ejecutamos todo el flujo en una sola llamada
+    try:
+        mejores_docs = compression_retriever.invoke(query)
+    except Exception as e:
+        print(f"[ERROR DE RED o API] Fallo al conectar con Cohere: {e}")
         return "Sin contexto."
-
-    # Fase 2: Re-Ranking
-    pares_evaluacion = [[query, doc.page_content] for doc in docs_brutos]
-    puntuaciones = modelo_reranker.predict(pares_evaluacion)
-
-    # Modificacion a documentos generados por IA
-    resultados_evaluados = []
-    for doc, nota in zip(docs_brutos, puntuaciones):
-        origen = doc.metadata.get("origen", "original")
-        nota_final = nota
-        if origen == "generado":
-            nota_final = nota - castigo_generado
-            
-        resultados_evaluados.append((doc, nota_final))
-
-    # CORRECCION: Ordenamos usando la lista evaluada (con el castigo aplicado)
-    resultados_evaluados.sort(key=lambda x: x[1], reverse=True)
     
-    for doc, nota_original, nota_castigada in zip(docs_brutos, puntuaciones, [n[1] for n in resultados_evaluados]):
-        print(f"[DEBUG RERANKER] Origen: {doc.metadata.get('origen')} | Nota original: {nota_original:.2f} | Nota final: {nota_castigada:.2f}")
-
-    mejores_docs = [item[0] for item in resultados_evaluados[:k_final]]
-    
-    # INYECCION DE FUENTES: Pegamos los metadatos al texto antes de unirlo
-    textos_finales = []
-    for i, doc in enumerate(mejores_docs):
-        fuente = doc.metadata.get("fuente", "Desconocida")
-        pagina = doc.metadata.get("pagina", "N/A")
-        origen = doc.metadata.get("origen", "original")
+    if not mejores_docs:
+        return "Sin contexto."
         
-        # Creamos la cabecera que leera el LLM
-        etiqueta = f"[FUENTE {i+1}: Archivo '{fuente}', Pagina {pagina}, Origen: {origen.upper()}]"
-        
-        textos_finales.append(f"{etiqueta}\n{doc.page_content}")
-    
-    return "\n\n---\n\n".join(textos_finales)
+    return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
 
 
 def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, filtros=None):
@@ -175,8 +168,7 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
         query=peticion_usuario, 
-        k_inicial=15, 
-        k_final=3, 
+        k_inicial=15,
         filtros=filtros, 
         tolerancia=0.0
     )
@@ -213,8 +205,7 @@ def corregir_seccion_existente(vector_db, llm, modelo_reranker, titulo_seccion, 
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
         query=query_busqueda, 
-        k_inicial=10, 
-        k_final=2,   
+        k_inicial=10,
         filtros=filtros, 
         tolerancia=0.2
     )
@@ -326,8 +317,7 @@ def consultar_duda_legal(vector_db, llm, modelo_reranker, pregunta, filtros=None
         vector_db=vector_db, 
         modelo_reranker=modelo_reranker, 
         query=pregunta, 
-        k_inicial=10, 
-        k_final=3, 
+        k_inicial=10,
         filtros=filtros, 
         tolerancia=0.0
     )
