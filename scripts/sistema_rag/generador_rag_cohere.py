@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 
 from langchain_cohere import CohereRerank
-from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain_classic.retrievers import ContextualCompressionRetriever
 
 from scripts.modelo.pliego import BorradorPliego
 

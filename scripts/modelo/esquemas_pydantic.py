@@ -91,4 +91,4 @@ class PlanOrquestador(BaseModel):
     )
     
 
-    COHERE_API_KEY="IcCW78juLuBuFhxERyqC61EvelhrxYAgYuEZWXta"
+    
