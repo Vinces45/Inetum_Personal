@@ -159,7 +159,17 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, filt
     if not mejores_docs:
         return "Sin contexto."
         
-    return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
+    # 5. Formateamos el texto para incluir los metadatos y que el LLM pueda citar
+    textos_formateados = []
+    for i, doc in enumerate(mejores_docs):
+        # Asegurate de que "source" y "page" coinciden con las claves reales de tu metadata en ChromaDB
+        fuente = doc.metadata.get("source", "Documento desconocido")
+        pagina = doc.metadata.get("page", "N/A")
+        
+        texto_doc = f"[FUENTE {i+1}: Archivo '{fuente}', Pagina {pagina}]\n{doc.page_content}"
+        textos_formateados.append(texto_doc)
+        
+    return "\n\n---\n\n".join(textos_formateados)
 
 
 def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, filtros=None):
