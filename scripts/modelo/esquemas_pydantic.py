@@ -67,7 +67,6 @@ class FiltrosMetadatos(BaseModel):
     )
 
 
-
 class FiltrosBusqueda(BaseModel):
     tramitacion: Optional[List[Literal["Ordinaria", "Urgente", "Emergencia"]]] = Field(
         default=None, 
@@ -81,7 +80,30 @@ class FiltrosBusqueda(BaseModel):
         default=None,
         description="Clasifica si busca construir (Obras), comprar bienes (Suministros) o contratar tareas (Servicios)."
     )
-
+    contrato_sara: Optional[bool] = Field(
+        default=None,
+        description="Pon True si el usuario menciona expresamente 'regulacion armonizada' o 'SARA'. Pon False si pide expresamente que NO este sujeto."
+    )
+    lotes: Optional[bool] = Field(
+        default=None,
+        description="Pon True si el usuario pide contratos divididos en lotes o por partes. Pon False si pide contrato unico."
+    )
+    financiacion_europea: Optional[bool] = Field(
+        default=None,
+        description="Pon True si el usuario menciona fondos europeos, UE, FEDER, MRR o Next Generation."
+    )
+    presupuesto_base_licitacion: Optional[float] = Field(
+        default=None,
+        description="Presupuesto, importe o dinero mencionado por el usuario. Solo el numero en euros."
+    )
+    plazo_ejecucion_meses: Optional[int] = Field(
+        default=None,
+        description="Plazo de ejecucion mencionado. Conviertelo SIEMPRE a meses (ej. si dice '1 ano', pon 12)."
+    )
+    iva_porcentaje: Optional[int] = Field(
+        default=None,
+        description="Porcentaje de IVA aplicable mencionado por el usuario. Devuelve unicamente el numero entero (ej. 21, 10, 4) sin el simbolo de porcentaje."
+    )
 
     
 

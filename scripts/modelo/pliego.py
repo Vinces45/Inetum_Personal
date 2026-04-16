@@ -87,6 +87,58 @@ class BorradorPliego:
     #     """Obtiene el texto de una seccion principal."""
     #     nodo = self.secciones.get(titulo)
     #     return nodo.contenido if nodo else None
+
+
+    def limpiar_borrador(self):
+        """Vacia el documento entero y guarda el json vacio."""
+        self.secciones = {}
+        self.guardar_respaldo()
+
+    def actualizar_desde_texto(self, texto_plano):
+        """Parsea el texto plano del text_area y reconstruye el arbol de nodos."""
+        self.secciones = {}
+        lineas = texto_plano.split('\n')
+        
+        nodo_prin = None
+        nodo_sub = None
+        
+        for linea in lineas:
+            linea_limpia = linea.strip()
+            
+            # 1. Ignoramos la cabecera visual del documento
+            if linea_limpia.startswith('===') or linea_limpia == 'BORRADOR ACTUAL':
+                continue
+                
+            # 2. Detectamos subsecciones (##)
+            if linea_limpia.startswith('## '):
+                tit_sub = linea_limpia.replace('## ', '').strip()
+                if nodo_prin:
+                    nodo_prin.subsecciones[tit_sub] = NodoSeccion(tit_sub)
+                    nodo_sub = nodo_prin.subsecciones[tit_sub]
+                    
+            # 3. Detectamos secciones principales (#)
+            elif linea.startswith('# '):
+                tit_prin = linea.replace('# ', '').strip()
+                self.secciones[tit_prin] = NodoSeccion(tit_prin)
+                nodo_prin = self.secciones[tit_prin]
+                nodo_sub = None
+                
+            # 4. Es contenido normal
+            elif linea_limpia != "":
+                if nodo_sub:
+                    nodo_sub.contenido += linea_limpia + "\n"
+                elif nodo_prin:
+                    nodo_prin.contenido += linea_limpia + "\n"
+                    
+        # 5. Limpiamos saltos de linea sobrantes y guardamos
+        for np in self.secciones.values():
+            np.contenido = np.contenido.strip()
+            for ns in np.subsecciones.values():
+                ns.contenido = ns.contenido.strip()
+                
+        self.guardar_respaldo()
+
+
         
     def mostrar_documento(self):
         """Recorre el arbol para mostrar el documento tabulado."""

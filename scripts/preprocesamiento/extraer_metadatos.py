@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from langchain_openai import AzureChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.callbacks import get_openai_callback
-from modelo.esquemas_pydantic import FiltrosMetadatos
+from scripts.modelo.esquemas_pydantic import FiltrosMetadatos
 from dotenv import load_dotenv
 
 
