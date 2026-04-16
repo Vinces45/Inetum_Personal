@@ -8,6 +8,8 @@ from langchain_core.output_parsers import StrOutputParser
 from sentence_transformers import CrossEncoder
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
+from typing import Optional, List, Literal  
+from pydantic import BaseModel, Field       
 
 from scripts.modelo.pliego import BorradorPliego
 
@@ -58,15 +60,20 @@ def inicializar_reranker():
     print("[SISTEMA] Cargando modelo Cross-Encoder Multilingue local...")
     return CrossEncoder('cross-encoder/mmarco-mMiniLMv2-L12-H384-v1')
 
+
+
 def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
     if not filtros:
         return None
         
     condiciones = []
     for clave, valor in filtros.items():
+        
+        # 1. Si el valor ya es un diccionario con operadores (pasa directo)
         if isinstance(valor, dict):
             condiciones.append({clave: valor})
             
+        # 2. Tolerancia para campos numericos
         elif clave in ["presupuesto_base_licitacion", "valor_estimado_contrato"] and isinstance(valor, (int, float)) and margen_tolerancia > 0:
             margen_inferior = valor * (1.0 - margen_tolerancia)
             margen_superior = valor * (1.0 + margen_tolerancia)
@@ -74,12 +81,26 @@ def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
                 clave: {"$gte": margen_inferior, "$lte": margen_superior}
             })
             
+        # 3. MANEJO DE LISTAS (La magia de la Query Expansion)
+        elif isinstance(valor, list):
+            # ChromaDB usa el operador $in para buscar si el metadato coincide con algun elemento de la lista
+            condiciones.append({clave: {"$in": valor}})
+            
+        # 4. Comodin tipo SQL (*texto*) usando $contains
+        elif isinstance(valor, str) and valor.startswith("*") and valor.endswith("*"):
+            texto_limpio = valor.replace("*", "")
+            condiciones.append({clave: {"$contains": texto_limpio}})
+            
+        # 5. Coincidencia exacta por defecto
         else:
             condiciones.append({clave: {"$eq": valor}})
             
     if len(condiciones) == 1:
         return condiciones[0]
-    return {"$and": condiciones}
+    elif len(condiciones) > 1:
+        return {"$and": condiciones}
+        
+    return None
 
 # def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0, castigo_generado=2.0):
 #     search_kwargs = {"k": k_inicial}
@@ -123,6 +144,13 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_fi
     search_kwargs = {"k": k_inicial}
     if filtros:
         filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=tolerancia)
+
+        # CHIVATO DE FILTROS PARA CHROMADB
+        print("\n" + "*"*50)
+        print(f" 🗄️ [DEBUG CHROMA] Diccionario recibido: {filtros}")
+        print(f" 🗄️ [DEBUG CHROMA] Sintaxis ChromaDB: {filtros_procesados}")
+        print("*"*50 + "\n")
+        
         if filtros_procesados:
             search_kwargs["filter"] = filtros_procesados
 
@@ -144,14 +172,24 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_fi
         if origen == "generado":
             nota_final = nota - castigo_generado
             
-        resultados_evaluados.append((doc, nota_final))
+        resultados_evaluados.append((doc, nota, nota_final))
 
-    # CORRECCION: Ordenamos usando la lista evaluada (con el castigo aplicado)
-    resultados_evaluados.sort(key=lambda x: x[1], reverse=True)
+    # Ordenamos usando la nota final (con el castigo aplicado)
+    resultados_evaluados.sort(key=lambda x: x[2], reverse=True)
     
-    for doc, nota_original, nota_castigada in zip(docs_brutos, puntuaciones, [n[1] for n in resultados_evaluados]):
+    # CHIVATO CORREGIDO: Ahora leemos de la lista ya ordenada para que cuadre
+    for doc, nota_original, nota_castigada in resultados_evaluados:
         print(f"[DEBUG RERANKER] Origen: {doc.metadata.get('origen')} | Nota original: {nota_original:.2f} | Nota final: {nota_castigada:.2f}")
 
+    # === NUEVA BARRERA DE SEGURIDAD (UMBRAL) ===
+    umbral_minimo = 0.5  # Puedes subirlo a 1.0 si ves que sigue alucinando
+    
+    # Si el mejor documento de todos no supera el umbral, abortamos y devolvemos vacio
+    if resultados_evaluados[0][2] < umbral_minimo:
+        print(f"[DEBUG RERANKER] 🛑 Ningun documento supero el umbral de {umbral_minimo}. Abortando RAG.")
+        return "Sin contexto."
+
+    # Si pasamos el umbral, cogemos los mejores
     mejores_docs = [item[0] for item in resultados_evaluados[:k_final]]
     
     # INYECCION DE FUENTES: Pegamos los metadatos al texto antes de unirlo
@@ -180,6 +218,11 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
         filtros=filtros, 
         tolerancia=0.0
     )
+
+    print("\n" + "#"*50)
+    print(" 🛠️ [DEBUG RAG] CONTEXTO PURO ENVIADO AL LLM 🛠️")
+    print(contexto_texto)
+    print("#"*50 + "\n")
 
     template = """
     Eres un Letrado experto en Contratacion Publica del Gobierno de La Rioja.
