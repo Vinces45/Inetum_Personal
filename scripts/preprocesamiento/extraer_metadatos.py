@@ -1,295 +1,114 @@
+#python -m preprocesamiento.extraer_metadatos
+
 import os
 import re
 import json
-import pypdf
-from pathlib import Path
-from typing import Optional
-from pydantic import BaseModel, Field
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
+import sys
 import fitz
 import docx
+from pathlib import Path
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field
+from langchain_openai import AzureChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_community.callbacks import get_openai_callback
+from modelo.esquemas_pydantic import FiltrosMetadatos
+from dotenv import load_dotenv
 
-class DatoTexto(BaseModel):
-    resultado: Optional[str] = Field(default=None, description="El texto exacto extraido.")
-
-class DatoEntero(BaseModel):
-    resultado: Optional[int] = Field(default=None, description="El numero entero extraido.")
-
-class DatoBooleano(BaseModel):
-    resultado: Optional[bool] = Field(default=None, description="True o False segun corresponda.")
 
 def limpiar_texto_basico(texto):
     return " ".join(texto.split())
 
-def obtener_contexto_relevante(texto_completo, lista_palabras_clave, ventana=800):
-    texto_lower = texto_completo.lower()
-    recortes = []
-    
-    for palabra_clave in lista_palabras_clave:
-        indice = 0
-        while True:
-            indice = texto_lower.find(palabra_clave, indice)
-            if indice == -1: 
-                break
-            inicio = max(0, indice - ventana)
-            fin = min(len(texto_completo), indice + ventana)
-            recortes.append(f"...[Contexto]...\n{texto_completo[inicio:fin]}\n")
-            indice += len(palabra_clave)
-            
-    if not recortes:
-        return texto_completo[:3000]
-    return "\n".join(recortes)[:8000]
-
-def parsear_moneda_espanola(valor_str):
-    if not valor_str or valor_str.lower() in ["null", "none"]:
-        return None
-    
-    limpio = re.sub(r'[^\d.,]', '', str(valor_str))
-    if not limpio: return None
-
-    if "," in limpio and "." in limpio:
-        limpio = limpio.replace(".", "")
-        limpio = limpio.replace(",", ".")
-    elif "," in limpio:
-        limpio = limpio.replace(",", ".")
-    elif "." in limpio:
-        partes = limpio.split(".")
-        if len(partes[-1]) == 3:
-            limpio = limpio.replace(".", "")
-    try:
-        return float(limpio)
-    except ValueError:
-        return None
-
-def extraer_presupuesto_base(texto_doc, llm):
-    print("    - Extrayendo Presupuesto Base...")
-    palabras_clave = ["presupuesto base", "importe neto", "excluido"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
-    llm_estructurado = llm.with_structured_output(DatoTexto)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Extrae el IMPORTE NETO del Presupuesto Base de Licitacion (SIEMPRE SIN IVA).
-    Si encuentras una tabla con 'IVA incluido' e 'IVA no incluido', selecciona la cifra SIN IVA.
-    Devuelve EXACTAMENTE el numero (ej: "27.664,00").
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return parsear_moneda_espanola(res.resultado) 
-    else:
-        return None
-
-def extraer_valor_estimado(texto_doc, llm):
-    print("    - Extrayendo Valor Estimado...")
-    palabras_clave = ["valor estimado", "prorrogas", "total"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
-    llm_estructurado = llm.with_structured_output(DatoTexto)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Extrae el VALOR ESTIMADO DEL CONTRATO (SIN IVA, que suele incluir prorrogas).
-    Devuelve EXACTAMENTE el texto original que veas (ej: "250.000,00"). No hagas conversiones.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return parsear_moneda_espanola(res.resultado) 
-    else:
-        return None
-
-def extraer_iva(texto_doc, llm):
-    print("    - Extrayendo IVA (Afinado)...")
-    palabras_clave = ["iva", "tipo de iva", "porcentaje"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 600)
-    llm_estructurado = llm.with_structured_output(DatoEntero)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Busca el porcentaje de IVA. No asumas el 21%. 
-    Busca en las tablas de presupuesto donde diga "IVA %" o "Tipo".
-    Devuelve solo el numero entero (ej: 10).
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-
-def extraer_plazo_ejecucion(texto_doc, llm):
-    print("    - Extrayendo Plazo de Ejecucion...")
-    palabras_clave = ["plazo de ejecucion", "duracion", "meses"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
-    llm_estructurado = llm.with_structured_output(DatoEntero)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Extrae el PLAZO DE EJECUCION inicial expresado en meses (solo el numero entero). 
-    Si aparece en años, pasalo al numero de meses equivalente. Si encuentras una fecha tal que así, de mayo a agosto, 
-    pasalo al número de meses equivalente.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-def extraer_prorroga(texto_doc, llm):
-    print("    - Extrayendo Prorroga...")
-    palabras_clave = ["prorroga", "meses"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
-    llm_estructurado = llm.with_structured_output(DatoEntero)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Extrae el tiempo maximo de PRORROGA permitido, expresado en meses (solo el numero entero).
-    Si no hay prorroga, no devuelvas nada.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-def extraer_tipo_contrato(texto_doc, llm):
-    print("    - Extrayendo Tipo de Contrato (Afinado)...")
-    palabras_clave = ["contrato de", "suministros", "obras", "servicios"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 500)
-    llm_estructurado = llm.with_structured_output(DatoTexto)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Analiza el titulo y el objeto del contrato. 
-    Opciones: "Obras", "Servicios", "Suministros".
-    Si el contrato es para comprar productos (como herbicidas o abono), es "Suministros".
-    Si es para realizar una actividad, es "Servicios".
-    Devuelve solo una palabra.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-def extraer_tramitacion(texto_doc, llm):
-    print("    - Extrayendo Tramitacion...")
-    palabras_clave = ["tramitacion ordinaria", "urgente", "emergencia"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
-    llm_estructurado = llm.with_structured_output(DatoTexto)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Clasifica la tramitacion. Opciones: "Ordinaria", "Urgente", "Emergencia".
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-def extraer_procedimiento(texto_doc, llm):
-    print("    - Extrayendo Procedimiento (Revision)...")
-    palabras_clave = ["procedimiento abierto", "procedimiento negociado", "articulo 156", "articulo 168"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave , 800)
-    llm_estructurado = llm.with_structured_output(DatoTexto)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    Identifica el procedimiento de adjudicacion. 
-    Busca palabras clave como 'Abierto' o 'Negociado'. 
-    Si menciona el 'Articulo 156', es 'Abierto'. 
-    Si menciona el 'Articulo 168', es 'Negociado'.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-def extraer_lotes(texto_doc, llm):
-    print("    - Extrayendo Lotes...")
-    palabras_clave = ["lotes", "division", "lote unico"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 800)
-    llm_estructurado = llm.with_structured_output(DatoBooleano)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    ¿El contrato esta dividido en lotes? Devuelve True si hay lotes, False si es lote unico o no se divide.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
-
-def extraer_financiacion_europea(texto_doc, llm):
-    print("    - Extrayendo Financiacion Europea...")
-    palabras_clave = ["feder", "europea", "next generation", "mecanismo"]
-    contexto = obtener_contexto_relevante(texto_doc, palabras_clave, 600)
-    llm_estructurado = llm.with_structured_output(DatoBooleano)
-    
-    prompt = ChatPromptTemplate.from_template("""
-    ¿El contrato cuenta con financiacion de fondos europeos (FEDER, Next Generation, etc)? Devuelve True o False.
-    CONTEXTO: '''{contexto}'''
-    """)
-    res = (prompt | llm_estructurado).invoke({"contexto": contexto})
-    if res:
-        return res.resultado
-    else:
-        return None
+def extraer_todo_el_documento(ruta):
+    texto_completo = ""
+    if ruta.lower().endswith(".pdf"):
+        with fitz.open(ruta) as doc:
+            for pagina in doc:
+                texto_completo += pagina.get_text("text") + "\n"
+    elif ruta.lower().endswith(".docx"):
+        doc_word = docx.Document(ruta)
+        for p in doc_word.paragraphs:
+            if p.text.strip():
+                texto_completo += p.text + "\n"
+        for tabla in doc_word.tables:
+            for fila in tabla.rows:
+                fila_texto = " | ".join([c.text.replace("\n", " ").strip() for c in fila.cells if c.text.strip()])
+                if fila_texto:
+                    texto_completo += fila_texto + "\n"
+    return limpiar_texto_basico(texto_completo)
 
 def procesar_documento(ruta, llm):
     nombre = os.path.basename(ruta)
     print(f"\nProcesando: {nombre}")
     
+    texto_documento = extraer_todo_el_documento(str(ruta))
     datos_finales = {"archivo": nombre}
-
+    coste_peticion = 0.0
+    
+    prompt = ChatPromptTemplate.from_template("""
+    Eres un auditor experto en contratacion publica de España.
+    Tu tarea es analizar el siguiente Pliego de Clausulas Administrativas Particulares (PCAP).
+    Extrae todos los metadatos solicitados basandote EXCLUSIVAMENTE en el texto proporcionado.
+    Si un dato no aparece claramente especificado en el texto, dejalo nulo.
+    
+    TEXTO DEL PLIEGO:
+    '''{texto}'''
+    """)
+    
+    llm_estructurado = llm.with_structured_output(FiltrosMetadatos)
+    cadena = prompt | llm_estructurado
+    
     try:
-        # reader = pypdf.PdfReader(ruta)
-        # texto_completo = "".join([p.extract_text() or "" for p in reader.pages])
-        # texto_limpio = limpiar_texto_basico(texto_completo)
-
-        texto_completo = ""
-
-        if ruta.lower().endswith(".pdf"):
-            with fitz.open(ruta) as doc:
-                for pagina in doc:
-                    texto_completo += pagina.get_text("text") + "\n"
-                    
-        elif ruta.lower().endswith(".docx"):
-            doc_word = docx.Document(ruta)
-            # Juntamos todos los parrafos del Word con un salto de linea
-            texto_completo = "\n".join([p.text for p in doc_word.paragraphs if p.text.strip()])  
-
-        texto_limpio = limpiar_texto_basico(texto_completo)   
-
-        expediente = re.search(r"(\d{2}-\d-\d\.\d{2}-\d{4}/\d{4})", texto_limpio)
-        if expediente: 
-            datos_finales["expediente"] = expediente.group(1)
-        
-        cpvs = re.findall(r"(?i)CPV.*?(\d{8})[-\s]*(\d)", texto_limpio)
-        if cpvs: 
-            datos_finales["cpv"] = list(set([f"{match[0]}-{match[1]}" for match in cpvs]))
-
-        datos_finales["presupuesto_base_licitacion"] = extraer_presupuesto_base(texto_limpio, llm)
-        datos_finales["valor_estimado_contrato"] = extraer_valor_estimado(texto_limpio, llm)
-        datos_finales["iva_porcentaje"] = extraer_iva(texto_limpio, llm)
-        datos_finales["plazo_ejecucion_meses"] = extraer_plazo_ejecucion(texto_limpio, llm)
-        datos_finales["tiempo_prorroga_meses"] = extraer_prorroga(texto_limpio, llm)
-        datos_finales["tipo_contrato"] = extraer_tipo_contrato(texto_limpio, llm)
-        datos_finales["tramitacion"] = extraer_tramitacion(texto_limpio, llm)
-        datos_finales["procedimiento"] = extraer_procedimiento(texto_limpio, llm)
-        datos_finales["lotes"] = extraer_lotes(texto_limpio, llm)
-        datos_finales["financiacion_europea"] = extraer_financiacion_europea(texto_limpio, llm)
-
-        datos_finales = {k: v for k, v in datos_finales.items() if v is not None}
-
+        with get_openai_callback() as cb:
+            resultado_pydantic = cadena.invoke({"texto": texto_documento})
+            
+            # Calculo del coste de esta peticion especifica
+            coste_peticion = ((cb.prompt_tokens/1000000)*1.09) + ((cb.completion_tokens/1000000)*8.69)
+            print(f"  -> Tokens procesados: {cb.total_tokens} | Coste doc: {coste_peticion:.4f} EUR")
+            
+            if resultado_pydantic:
+                # Usamos model_dump para evitar el warning de obsolescencia
+                datos_extrados = resultado_pydantic.model_dump(exclude_none=False)
+                datos_finales.update(datos_extrados)
+                
     except Exception as e:
-        print(f"Error procesando {nombre}: {e}")
+        print(f"[ERROR] Procesando {nombre}: {e}")
 
-    return datos_finales
+    return datos_finales, coste_peticion
 
 if __name__ == "__main__":
+
+    
+    
+    # 1. Ajuste de rutas
+    DIRECTORIO_ACTUAL = Path(__file__).resolve().parent
+    DIRECTORIO_SCRIPTS = DIRECTORIO_ACTUAL.parent
+    sys.path.append(str(DIRECTORIO_SCRIPTS))
+    
+    from modelo.esquemas_pydantic import FiltrosMetadatos
+
+    # 2. Inicializacion exacta como en tu script original
+    load_dotenv()
+    
+    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION")
+    
+    if not all([api_key, endpoint, api_version]):
+        raise ValueError("Faltan credenciales de Azure en el archivo .env. Revisa la configuracion.")
+        
+    print("Inicializando modelo Azure LLM...")
+    llm_global = AzureChatOpenAI(
+        azure_deployment="gpt-5.1",
+        model_name="gpt-5.1",
+        api_version=api_version,
+        azure_endpoint=endpoint,
+        api_key=api_key,
+        temperature=0.0,
+        max_tokens=16384
+    )
+    
+    # 3. Configurar rutas
     BASE_DIR = Path(__file__).resolve().parent.parent          
     PROJECT_ROOT = BASE_DIR.parent           
     DIR_PLIEGOS = PROJECT_ROOT / "datos" / "pdfs" / "pcap"
@@ -299,18 +118,27 @@ if __name__ == "__main__":
         print(f"[ERROR] La carpeta {DIR_PLIEGOS} no existe.")
         exit(1)
         
-    archivos_pdf = list(DIR_PLIEGOS.glob("*.pdf"))
+    archivos_doc = list(DIR_PLIEGOS.glob("*.pdf")) + list(DIR_PLIEGOS.glob("*.docx"))
+    DIR_JSON.parent.mkdir(parents=True, exist_ok=True)
     
-    print("Inicializando modelo LLM...")
-    llm_global = ChatOllama(model="llama3.1", temperature=0.0)
+    print(f"--- Iniciando Extraccion Masiva ({len(archivos_doc)} documentos) ---")
     
-    print(f"--- Iniciando Extraccion de ({len(archivos_pdf)} documentos) ---")
+    coste_total_lote = 0.0
 
     with open(DIR_JSON, "w", encoding="utf-8") as metadatos_finales:
-        for archivo in archivos_pdf:
-            diccionario_metadatos_documento = procesar_documento(archivo, llm_global)
-            json_metadatos = json.dumps(diccionario_metadatos_documento, ensure_ascii=False)
+        for archivo in archivos_doc:
+            diccionario_metadatos, coste_doc = procesar_documento(archivo, llm_global)
+            
+            coste_total_lote += coste_doc
+            
+            json_metadatos = json.dumps(diccionario_metadatos, ensure_ascii=False)
             metadatos_finales.write(json_metadatos + "\n")
 
+    print("\n" + "="*50)
+    print(" REPORTE FINAL DE COSTES DEL LOTE ")
+    print(f"Documentos procesados: {len(archivos_doc)}")
+    print(f"Coste total estimado:  {coste_total_lote:.4f} EUR")
+    print("="*50)
+    
     print(f"\n--- Proceso finalizado ---")
     print(f"Guardado en: {DIR_JSON}")

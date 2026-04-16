@@ -98,6 +98,14 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_metadatos):
                     if not texto_limpio:
                         continue   
 
+                    # --- INICIO DE LA INYECCION SEMANTICA ---
+                    # Extraemos el objeto del contrato de los metadatos (si no existe, ponemos un valor por defecto)
+                    objeto_del_contrato = datos_jsonl.get("objeto_contrato", "Objeto no especificado")
+                    
+                    # Modificamos el texto limpio inyectandole el contexto semantico al principio
+                    texto_enriquecido = f"Objeto del Expediente: {objeto_del_contrato}\n\nContenido:\n{texto_limpio}"
+                    # --- FIN DE LA INYECCION SEMANTICA ---
+
                     metadatos_final = {
                         "fuente": archivo,
                         "doc_id": id_actual if id_actual else "unknown",
@@ -107,7 +115,17 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_metadatos):
                     }
                     tipos_permitidos = (str, int, float, bool)
                     for clave, valor in datos_jsonl.items():
-                        if clave != "archivo" and valor is not None:
+                        if clave == "archivo":
+                            continue
+                            
+                        if valor is None:
+                            if clave in ["presupuesto_base_licitacion", "valor_estimado_contrato", "iva_porcentaje", "plazo_ejecucion_meses", "tiempo_prorroga_meses", "anio_expediente"]:
+                                metadatos_final[clave] = 0
+                            elif clave in ["lotes", "financiacion_europea", "contrato_sara"]:
+                                metadatos_final[clave] = False
+                            else:
+                                metadatos_final[clave] = "No especificado"
+                        else:
                             if isinstance(valor, list):
                                 metadatos_final[clave] = ", ".join(map(str, valor))
                             elif isinstance(valor, tipos_permitidos):
@@ -115,7 +133,7 @@ def cargar_y_procesar_documentos(dir_pcap, dir_ppt, dicc_metadatos):
                             else:
                                 metadatos_final[clave] = str(valor)
                 
-                    doc = Document(page_content=texto_limpio, metadata=metadatos_final)
+                    doc = Document(page_content=texto_enriquecido, metadata=metadatos_final)
                     docs_lista.append(doc)
                 
                 print(f"-> {archivo} procesado ({len(pdf_doc)} paginas).")
