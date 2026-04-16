@@ -80,7 +80,7 @@ if "chat_history" not in st.session_state:
         "5. REGLA ESTRICTA DE CONTROL DE ERRORES: Tras usar 'herramienta_crear_secciones' o 'herramienta_modificar_seccion', DEBES LEER OBLIGATORIAMENTE la respuesta de la herramienta. "
         " -> Si la herramienta devuelve la palabra ERROR (ej. por falta de contexto legal o ruta no valida), tu UNICA tarea es pedir disculpas al usuario y citar textualmente el motivo del fallo. "
         " -> PROHIBICION ABSOLUTA: Si la herramienta falla, TIENES ESTRICTAMENTE PROHIBIDO redactar texto juridico por tu cuenta, inventar apartados o sugerir clausulas en el chat. Debes decirle al usuario que reformule su peticion para que coincida con los documentos de la base de datos. "
-        "6. REGLA DE EXITO: SOLO si la herramienta devuelve un mensaje de EXITO confirmando que se han guardado las secciones, limitate a decirle que la operacion ha finalizado correctamente y que revise la pestaña 'Borrador Actual'. En este caso de exito, TAMPOCO debes mostrar ni resumir el texto en el chat. "
+        "6. REGLA DE EXITO: SOLO si la herramienta devuelve un mensaje de EXITO confirmando que se han guardado las secciones, limitate a decirle que la operacion ha finalizado correctamente y que revise la pestaña 'Editor del Pliego'. En este caso de exito, TAMPOCO debes mostrar ni resumir el texto en el chat. "
         "DIRECTRIZ DE PROACTIVIDAD: "
         "1. Si el usuario pide 'descargar', 'exportar' o dice que el documento esta 'listo' o 'terminado', "
         "DEBES preguntarle: '¿Deseas que guarde este pliego en mi base de datos de conocimiento para usarlo como referencia en el futuro?' "
@@ -93,111 +93,48 @@ if "chat_history" not in st.session_state:
 # 4. INTERFAZ GRAFICA (UI)
 # ==========================================
 
-# La barra lateral se queda fuera de los tabs para que sea siempre visible
+# La barra lateral AHORA solo tiene herramientas auxiliares
 with st.sidebar:
-
     usar_rag_efimero = False
-    st.header("Borrador Actual")
+    st.header("📎 Herramientas Auxiliares")
+    st.info("Sube un PDF temporal para hacerle preguntas rapidas. No se guardara en la BD oficial.")
+
+    pdf_efimero = st.file_uploader("Subir PDF Temporal", type=["pdf"], key="uploader_efimero")
+
+    if pdf_efimero:
+        usar_rag_efimero = st.toggle("Modo: Preguntar al PDF Adjunto", value=True)
         
-    with st.container(height=600):
-        if not motor.documento.secciones:
-            st.info("El documento esta vacio.")
-        else:
-            # Definimos una funcion recursiva para dibujar los nodos
-            def renderizar_nodos(nodos, nivel=3, prefijo_ruta=""):
-                for titulo, nodo in nodos.items():
-                    # El nivel determina cuantas almohadillas ponemos (###, ####, #####...)
-                    st.markdown(f"{'#' * nivel} {titulo}")
-                    
-                    # Generamos una key 100% unica arrastrando la historia de sus padres
-                    key_unica = f"editor_{prefijo_ruta}_{titulo}_{nivel}"
-                    
-                    nuevo_contenido = st.text_area(
-                        "Contenido",
-                        value=nodo.contenido,
-                        height=150 if nivel == 3 else 100,
-                        key=key_unica,
-                        label_visibility="collapsed"
-                    )
-                    # Actualizamos el objeto en RAM
-                    nodo.contenido = nuevo_contenido
-                    
-                    # LLAMADA RECURSIVA: Pasamos el titulo actual como parte del prefijo para los hijos
-                    if nodo.subsecciones:
-                        renderizar_nodos(nodo.subsecciones, nivel + 1, f"{prefijo_ruta}_{titulo}")
+        if "cadena_efimera" not in st.session_state or st.session_state.get("archivo_efimero_nombre") != pdf_efimero.name:
+            with st.spinner("Cargando en RAM..."):
+                ruta_temp_efimera = os.path.join("datos/temp_uploads", "temp_chat.pdf")
+                with open(ruta_temp_efimera, "wb") as f:
+                    f.write(pdf_efimero.getbuffer())
+                
+                emb_model = OllamaEmbeddings(model="mxbai-embed-large")
+                cadena = crear_rag_temporal(ruta_temp_efimera, emb_model, motor.llm)
+                
+                if cadena:
+                    st.session_state.cadena_efimera = cadena
+                    st.session_state.archivo_efimero_nombre = pdf_efimero.name
+                
+                if os.path.exists(ruta_temp_efimera):
+                    os.remove(ruta_temp_efimera)
 
-            # Lanzamos la primera llamada con las secciones raiz
-            renderizar_nodos(motor.documento.secciones)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("🗑️ Vaciar pliego", use_container_width=True):
-            motor.documento.limpiar_borrador()
-            st.rerun()
-            
-    with col2:
-        if st.button("💾 Guardar edicion", use_container_width=True):
-            # Como los objetos se han actualizado arriba, solo llamamos al metodo de guardado base
-            motor.documento.guardar_respaldo()
-            st.success("JSON actualizado correctamente.")
-            st.rerun()
-    
-    # NUEVO: Boton de descarga nativo
-    if motor.documento.secciones: 
-        st.markdown("---")
-        # Generamos el archivo en memoria
-        archivo_word_bytes = generar_bytes_word(motor.documento.secciones)
-        
-        # El componente de Streamlit que gestiona la ventana de "Guardar como"
-        st.download_button(
-            label="Descargar Pliego en Word",
-            data=archivo_word_bytes,
-            file_name="pliego.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True,
-            disabled=st.session_state.ia_trabajando 
-        )
-
-        st.markdown("---")
-        st.header("📎 Analisis Efimero")
-        st.info("Sube un PDF temporal para hacerle preguntas rapidas. No se guardara en la BD oficial.")
-
-        pdf_efimero = st.file_uploader("Subir PDF Temporal", type=["pdf"], key="uploader_efimero")
-
-        # El usuario decide si activar esta funcion con este interruptor
-         # Por defecto desactivado
-        if pdf_efimero:
-            
-            usar_rag_efimero = st.toggle("Modo: Preguntar al PDF Adjunto", value=True)
-            
-            if "cadena_efimera" not in st.session_state or st.session_state.get("archivo_efimero_nombre") != pdf_efimero.name:
-                with st.spinner("Cargando en RAM..."):
-                    ruta_temp_efimera = os.path.join("datos/temp_uploads", "temp_chat.pdf")
-                    with open(ruta_temp_efimera, "wb") as f:
-                        f.write(pdf_efimero.getbuffer())
-                    
-                    # Inicializamos el Mini-RAG
-                    emb_model = OllamaEmbeddings(model="mxbai-embed-large")
-                    cadena = crear_rag_temporal(ruta_temp_efimera, emb_model, motor.llm)
-                    
-                    if cadena:
-                        st.session_state.cadena_efimera = cadena
-                        st.session_state.archivo_efimero_nombre = pdf_efimero.name
-                    
-                    if os.path.exists(ruta_temp_efimera):
-                        os.remove(ruta_temp_efimera)
-    # Bloque de debug visual para la barra lateral
+    st.markdown("---")
     with st.expander("Debug: Memoria del Agente"):
         st.write(f"Total de mensajes: {len(st.session_state.chat_history)}")
         for i, msg in enumerate(st.session_state.chat_history):
-            # Muestra el indice, el tipo (human/ai/system) y los primeros 40 caracteres
             st.caption(f"[{i}] {msg.type.upper()}: {msg.content[:40]}...")
 
 st.title("🏛️ Asistente de Pliegos - La Rioja")
 
-# CREACION DE LAS PESTANAS
-tab_chat, tab_admin = st.tabs(["💬 Chatbot", "⚙️ Administracion de Base de Datos"])
+
+# 2. CREACION DE LAS 3 PESTANAS
+tab_chat, tab_borrador, tab_admin = st.tabs([
+    "💬 Chatbot", 
+    "📄 Editor del Pliego", 
+    "⚙️ Administracion de Base de Datos"
+])
 
 # ---------------------------------------------------------
 # PESTANA 1: EL CHATBOT (Tu codigo original indentado)
@@ -283,8 +220,74 @@ with tab_chat:
                 
         st.rerun()
 
+
 # ---------------------------------------------------------
-# PESTANA 2: PANEL DE ADMINISTRACION (Ingesta Permanente)
+# PESTANA 2: EDITOR DEL PLIEGO
+# ---------------------------------------------------------
+with tab_borrador:
+    st.header("Borrador del Pliego de Condiciones")
+    
+    # 1. FUNCION DE RENDERIZADO (Definida al principio para que no falle)
+    def dibujar_secciones_recursivo(nodos, nivel=2, ruta_padre=""):
+        for titulo, nodo in nodos.items():
+            # ID unico para evitar el error de DuplicateKey de Streamlit
+            id_componente = f"ed_{ruta_padre}_{titulo}_{nivel}".replace(" ", "_")
+            
+            with st.expander(f"Seccion: {titulo}", expanded=True):
+                # Usamos el area de texto para el contenido del nodo
+                nuevo_txt = st.text_area(
+                    label=f"Editor {titulo}",
+                    value=nodo.contenido,
+                    height=250,
+                    key=id_componente,
+                    label_visibility="collapsed"
+                )
+                # Sincronizamos con la memoria RAM
+                nodo.contenido = nuevo_txt
+            
+            # Si hay hijos, entramos en la recursion
+            if nodo.subsecciones:
+                st.markdown("---") # Separador visual
+                dibujar_secciones_recursivo(nodo.subsecciones, nivel + 1, f"{ruta_padre}_{titulo}")
+
+    # 2. LOGICA DE VISUALIZACION
+    if not motor.documento.secciones:
+        st.info("El borrador esta vacio actualmente. Genera contenido con el Chatbot.")
+    else:
+        # Si hay datos, llamamos a la funcion
+        dibujar_secciones_recursivo(motor.documento.secciones)
+
+    st.markdown("---")
+    
+    # 3. BOTONERA SIEMPRE VISIBLE (Fuera de cualquier if/else)
+    col_v1, col_v2, col_v3 = st.columns([1, 1, 2])
+    
+    with col_v1:
+        btn_vaciar = st.button("🗑️ Vaciar Todo", use_container_width=True, disabled=not motor.documento.secciones)
+        if btn_vaciar:
+            motor.documento.limpiar_borrador()
+            st.rerun()
+            
+    with col_v2:
+        btn_guardar = st.button("💾 Guardar Cambios", use_container_width=True, type="primary")
+        if btn_guardar:
+            motor.documento.guardar_respaldo()
+            st.success("¡JSON de respaldo actualizado!")
+            
+    with col_v3:
+        if motor.documento.secciones:
+            datos_word = generar_bytes_word(motor.documento.secciones)
+            st.download_button(
+                label="📥 Descargar en Word",
+                data=datos_word,
+                file_name="pliego_generado.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+        else:
+            st.button("📥 Descargar en Word", disabled=True, use_container_width=True)
+# ---------------------------------------------------------
+# PESTANA 3: PANEL DE ADMINISTRACION (Ingesta Permanente)
 # ---------------------------------------------------------
 with tab_admin:
     st.header("Motor de Ingesta Vectorial")

@@ -6,6 +6,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
 attrs==25.4.0
+audioop-lts==0.2.2
 backoff==2.2.1
 bcrypt==5.0.0
 blinker==1.9.0
@@ -23,6 +24,8 @@ colorama==0.4.6
 confection==0.1.5
 cymem==2.0.13
 dataclasses-json==0.6.7
+discord==2.3.2
+discord.py==2.7.1
 distro==1.9.0
 docx==0.2.4
 durationpy==0.10
