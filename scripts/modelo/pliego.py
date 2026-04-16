@@ -218,7 +218,7 @@ class BorradorPliego:
         ruta_version = DIR_HISTORIAL / f"borrador_{timestamp}.json"
         
         shutil.copy2(self.archivo_respaldo, ruta_version)
-        self._limpiar_historial()
+        self.limpiar_historial()
         
 
     def limpiar_historial(self):
