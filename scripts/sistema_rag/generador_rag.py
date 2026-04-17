@@ -140,7 +140,7 @@ def construir_filtros_chroma(filtros, margen_tolerancia=0.0):
     
 #     return "\n\n---\n\n".join(doc.page_content for doc in mejores_docs)
 
-def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0, castigo_generado=2.0):
+def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_final=3, filtros=None, tolerancia=0.0, castigo_generado=2.0, umbral_minimo = 0.0):
     search_kwargs = {"k": k_inicial}
     if filtros:
         filtros_procesados = construir_filtros_chroma(filtros, margen_tolerancia=tolerancia)
@@ -180,9 +180,6 @@ def recuperar_con_reranker(vector_db, modelo_reranker, query, k_inicial=15, k_fi
     # CHIVATO CORREGIDO: Ahora leemos de la lista ya ordenada para que cuadre
     for doc, nota_original, nota_castigada in resultados_evaluados:
         print(f"[DEBUG RERANKER] Origen: {doc.metadata.get('origen')} | Nota original: {nota_original:.2f} | Nota final: {nota_castigada:.2f}")
-
-    # === NUEVA BARRERA DE SEGURIDAD (UMBRAL) ===
-    umbral_minimo = 0.5  # Puedes subirlo a 1.0 si ves que sigue alucinando
     
     # Si el mejor documento de todos no supera el umbral, abortamos y devolvemos vacio
     if resultados_evaluados[0][2] < umbral_minimo:
@@ -219,10 +216,10 @@ def generar_seccion_nueva(vector_db, llm, modelo_reranker, peticion_usuario, fil
         tolerancia=0.0
     )
 
-    print("\n" + "#"*50)
+    # print("\n" + "#"*50)
     print(" 🛠️ [DEBUG RAG] CONTEXTO PURO ENVIADO AL LLM 🛠️")
-    print(contexto_texto)
-    print("#"*50 + "\n")
+    # print(contexto_texto)
+    # print("#"*50 + "\n")
 
     template = """
     Eres un Letrado experto en Contratacion Publica del Gobierno de La Rioja.

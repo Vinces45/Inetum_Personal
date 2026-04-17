@@ -2,6 +2,7 @@
 from typing import List, Optional
 import os
 import json
+import openai
 import streamlit as st
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -39,6 +40,7 @@ def inicializar_motor():
     m.llm = inicializar_llm()
     m.documento = BorradorPliego()
     return m
+
 
 # Llamamos a la funcion. Todos los hilos leeraan esta variable global.
 motor = inicializar_motor()
@@ -195,17 +197,33 @@ with tab_chat:
                         print(f"[DEBUG MEMORIA] Se van a enviar {len(st.session_state.chat_history)} mensajes al LLM.")
 
                         # 2. Llamamos al agente
-                        respuesta = agente.invoke({"messages": st.session_state.chat_history})
-                        
-                        # 3. Guardamos el nuevo historial que devuelve el agente
-                        st.session_state.chat_history = respuesta["messages"]
-                        
-                        # 4. Mostramos el ultimo mensaje en la interfaz
-                        for msg in reversed(st.session_state.chat_history):
-                            if msg.type == "ai" and msg.content:
-                                st.markdown(msg.content)
-                                break
-                    
+                        try:
+                            respuesta = agente.invoke({"messages": st.session_state.chat_history})
+                            
+                            # 3. Guardamos el nuevo historial que devuelve el agente (SOLO SI HAY EXITO)
+                            st.session_state.chat_history = respuesta["messages"]
+                            
+                            # 4. Mostramos el ultimo mensaje en la interfaz
+                            for msg in reversed(st.session_state.chat_history):
+                                if msg.type == "ai" and msg.content:
+                                    st.markdown(msg.content)
+                                    break
+
+                        except openai.BadRequestError as e:
+                            # Capturamos el error 400 de Azure OpenAI
+                            error_dict = e.body
+                            if error_dict and 'innererror' in error_dict.get('error', {}):
+                                codigo_error = error_dict['error']['innererror'].get('code')
+                                if codigo_error == 'ResponsibleAIPolicyViolation':
+                                    st.error("⚠️ Peticion bloqueada por los filtros de seguridad de Azure. Por favor, reformula tu solicitud manteniendo un lenguaje profesional y sin intentar eludir las instrucciones del sistema.")
+                                else:
+                                    st.error(f"Error de peticion a la API: {e}")
+                            else:
+                                st.error(f"Se ha producido un error de comunicacion con el modelo: {e}")
+
+                        except Exception as e:
+                            # Captura cualquier otro error inesperado
+                            st.error(f"Error interno del sistema: {e}")
                     
                     # REPORTAMOS EL GASTO POR CONSOLA AL TERMINAR
                     print("\n" + "="*50)
@@ -227,39 +245,89 @@ with tab_chat:
 with tab_borrador:
     st.header("Borrador del Pliego de Condiciones")
     
-    # 1. FUNCION DE RENDERIZADO (Definida al principio para que no falle)
-    def dibujar_secciones_recursivo(nodos, nivel=2, ruta_padre=""):
-        for titulo, nodo in nodos.items():
-            # ID unico para evitar el error de DuplicateKey de Streamlit
-            id_componente = f"ed_{ruta_padre}_{titulo}_{nivel}".replace(" ", "_")
+    # 1. FUNCION DE RENDERIZADO VISUAL RECURSIVO CON BOTONES "AÑADIR"
+    def dibujar_secciones_recursivo(nodos, nivel=1, ruta_lista=None):
+        if ruta_lista is None:
+            ruta_lista = []
             
-            with st.expander(f"Seccion: {titulo}", expanded=True):
-                # Usamos el area de texto para el contenido del nodo
+        for titulo, nodo in nodos.items():
+            ruta_actual = ruta_lista + [titulo]
+            id_componente = f"ed_{'_'.join(ruta_actual)}".replace(" ", "_")
+            
+            # A. Calculamos la sangria usando proporciones de columnas nativas
+            espacio_izq = (nivel - 1) * 0.05 
+            
+            if espacio_izq > 0:
+                col_sangria, col_contenido = st.columns([espacio_izq, 1 - espacio_izq])
+            else:
+                col_contenido = st.container()
+
+            with col_contenido:
+                # B. Renderizamos el titulo
+                if nivel == 1:
+                    st.markdown(f"## {titulo}")
+                    altura_caja = 250
+                elif nivel == 2:
+                    st.markdown(f"### {titulo}")
+                    altura_caja = 150
+                else:
+                    st.markdown(f"#### {titulo}")
+                    altura_caja = 100
+                
+                # C. Renderizamos el editor de texto
                 nuevo_txt = st.text_area(
                     label=f"Editor {titulo}",
                     value=nodo.contenido,
-                    height=250,
+                    height=altura_caja,
                     key=id_componente,
                     label_visibility="collapsed"
                 )
-                # Sincronizamos con la memoria RAM
-                nodo.contenido = nuevo_txt
+                nodo.contenido = nuevo_txt # Sincronizamos la RAM
+                
+                # D. MINI-FORMULARIO PARA AÑADIR SUBSECCION A ESTE NODO
+                with st.expander("➕ Añadir subseccion aqui", expanded=False):
+                    col_input, col_btn = st.columns([3, 1])
+                    with col_input:
+                        nuevo_subtitulo = st.text_input(
+                            "Titulo de la subseccion", 
+                            key=f"in_{id_componente}", 
+                            label_visibility="collapsed",
+                            placeholder="Ej: 1.1. Garantias..."
+                        )
+                    with col_btn:
+                        if st.button("Crear", key=f"btn_crear_{id_componente}", use_container_width=True):
+                            if nuevo_subtitulo:
+                                # Usamos tu funcion del motor para inyectar el nodo vacio en el arbol
+                                ruta_nueva = ruta_actual + [nuevo_subtitulo]
+                                motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_nueva, contenido="")
+                                st.rerun() # Recargamos la app para que se dibuje
             
-            # Si hay hijos, entramos en la recursion
-            if nodo.subsecciones:
-                st.markdown("---") # Separador visual
-                dibujar_secciones_recursivo(nodo.subsecciones, nivel + 1, f"{ruta_padre}_{titulo}")
+            # E. Llamada recursiva para los hijos
+            hijos = getattr(nodo, "subsecciones", None)
+            if hijos:
+                dibujar_secciones_recursivo(hijos, nivel + 1, ruta_actual)
 
     # 2. LOGICA DE VISUALIZACION
     if not motor.documento.secciones:
         st.info("El borrador esta vacio actualmente. Genera contenido con el Chatbot.")
     else:
-        # Si hay datos, llamamos a la funcion
         dibujar_secciones_recursivo(motor.documento.secciones)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        # 3. FORMULARIO GLOBAL PARA AÑADIR SECCION PRINCIPAL (RAIZ)
+        with st.expander("➕ AÑADIR NUEVA SECCION PRINCIPAL", expanded=False):
+            col_raiz_in, col_raiz_btn = st.columns([4, 1])
+            with col_raiz_in:
+                nueva_raiz = st.text_input("Titulo de la seccion", key="in_raiz", label_visibility="collapsed", placeholder="Ej: 5. Penalidades")
+            with col_raiz_btn:
+                if st.button("Añadir Seccion", key="btn_raiz", type="primary", use_container_width=True):
+                    if nueva_raiz:
+                        motor.documento.actualizar_seccion_infinita(ruta_titulos=[nueva_raiz], contenido="")
+                        st.rerun()
 
     st.markdown("---")
     
-    # 3. BOTONERA SIEMPRE VISIBLE (Fuera de cualquier if/else)
+    # 4. BOTONERA SIEMPRE VISIBLE
     col_v1, col_v2, col_v3 = st.columns([1, 1, 2])
     
     with col_v1:
@@ -276,7 +344,7 @@ with tab_borrador:
             
     with col_v3:
         if motor.documento.secciones:
-            datos_word = generar_bytes_word(motor.documento.secciones)
+            datos_word = generar_bytes_word(motor.documento.secciones) 
             st.download_button(
                 label="📥 Descargar en Word",
                 data=datos_word,

@@ -70,39 +70,39 @@ class FiltrosMetadatos(BaseModel):
 class FiltrosBusqueda(BaseModel):
     tramitacion: Optional[List[Literal["Ordinaria", "Urgente", "Emergencia"]]] = Field(
         default=None, 
-        description="Expande la peticion. Si el usuario pide tramites rapidos o acelerados, incluye ['Urgente', 'Emergencia']. Si pide normales, ['Ordinaria']."
+        description="NO ADIVINAR. Extraer SOLO si el usuario menciona textualmente 'ordinaria', 'urgente' o 'emergencia'. Si no se menciona, dejar como nulo."
     )
     procedimiento: Optional[List[Literal["Abierto", "Menor", "Negociado", "Simplificado", "Super Simplificado"]]] = Field(
         default=None,
-        description="Expande la peticion. Si pide tramites sencillos, incluye ['Simplificado', 'Super Simplificado', 'Menor']. Si pide sin publicidad, ['Negociado']."
+        description="NO ADIVINAR. Extraer SOLO si el usuario menciona expresamente el tipo de procedimiento. Si no lo dice de forma explicita, dejar como nulo."
     )
     tipo_contrato: Optional[List[Literal["Obras", "Servicios", "Suministros"]]] = Field(
         default=None,
-        description="Clasifica si busca construir (Obras), comprar bienes (Suministros) o contratar tareas (Servicios)."
+        description="Extraer SOLO si el usuario especifica claramente si es obras, servicios o suministros. NUNCA inventar por defecto."
     )
     contrato_sara: Optional[bool] = Field(
         default=None,
-        description="Pon True si el usuario menciona expresamente 'regulacion armonizada' o 'SARA'. Pon False si pide expresamente que NO este sujeto."
+        description="Dejar SIEMPRE vacio (nulo) a menos que el usuario mencione explicitamente 'SARA' o 'regulacion armonizada' (True), o pida que no este sujeto (False)."
     )
     lotes: Optional[bool] = Field(
         default=None,
-        description="Pon True si el usuario pide contratos divididos en lotes o por partes. Pon False si pide contrato unico."
+        description="Dejar SIEMPRE vacio (nulo). Rellenar con True o False SOLO si el prompt habla explicitamente de la division en lotes."
     )
     financiacion_europea: Optional[bool] = Field(
         default=None,
-        description="Pon True si el usuario menciona fondos europeos, UE, FEDER, MRR o Next Generation."
+        description="Dejar SIEMPRE vacio (nulo). Pon True SOLO si el usuario menciona explicitamente fondos europeos, UE, FEDER, MRR o Next Generation."
     )
     presupuesto_base_licitacion: Optional[float] = Field(
         default=None,
-        description="Presupuesto, importe o dinero mencionado por el usuario. Solo el numero en euros."
+        description="NO INVENTAR. Rellenar SOLO si el usuario menciona expresamente un importe o presupuesto exacto en la peticion."
     )
     plazo_ejecucion_meses: Optional[int] = Field(
         default=None,
-        description="Plazo de ejecucion mencionado. Conviertelo SIEMPRE a meses (ej. si dice '1 ano', pon 12)."
+        description="NO INVENTAR. Rellenar SOLO si el usuario menciona un plazo. Convertir a meses (ej. '1 ano' = 12). Si no hay plazo explicito, dejar nulo."
     )
     iva_porcentaje: Optional[int] = Field(
         default=None,
-        description="Porcentaje de IVA aplicable mencionado por el usuario. Devuelve unicamente el numero entero (ej. 21, 10, 4) sin el simbolo de porcentaje."
+        description="NO INVENTAR. Rellenar SOLO si se menciona explicitamente el porcentaje de IVA. Devuelve solo el numero entero (ej. 21)."
     )
 
     
@@ -114,15 +114,20 @@ class PeticionSubseccion(BaseModel):
     instruccion_especifica: str = Field(description="Que pide exactamente el usuario para esta subseccion concreta.")
 
 class PeticionSeccion(BaseModel):
-    titulo: str = Field(description="Titulo principal de la seccion (ej: '1. Objeto del Contrato').")
+    titulo: str = Field(
+        description="Titulo de la seccion o subseccion (ej: '1. Objeto', '1.1. Garantias')."
+    )
     instruccion_especifica: Optional[str] = Field(
         default=None, 
-        description="Instruccion general para esta seccion principal. Si solo es un titulo contenedor, dejalo vacio."
+        description="Que pide exactamente el usuario para esta seccion concreta."
     )
-    subsecciones: Optional[List[PeticionSubseccion]] = Field(
+    subsecciones: Optional[List['PeticionSeccion']] = Field(
         default=None, 
-        description="Lista de subsecciones si el usuario pide desglosarlo en apartados mas pequeños."
+        description="Lista de subsecciones anidadas de forma recursiva, si el usuario pide desglosarlo en apartados mas pequenos."
     )
+
+# Es obligatorio reconstruir el modelo en Pydantic cuando una clase se llama a si misma
+PeticionSeccion.model_rebuild()
 
 class PlanOrquestador(BaseModel):
     accion: Literal["crear", "modificar", "eliminar", "resumir", "consultar", "exportar"] = Field(

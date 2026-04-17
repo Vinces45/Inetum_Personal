@@ -63,17 +63,91 @@ def obtener_lista_herramientas(motor):
         print("="*50 + "\n")
         return respuesta_llm
 
+    @tool
+    def herramienta_crear_secciones(secciones_a_crear: List[PeticionSeccion], filtros_llm: Optional[FiltrosBusqueda] = None) -> str:
+        """
+        Crea una o multiples secciones (con o sin subsecciones) en el pliego de forma recursiva (niveles infinitos).
+        Usa esta herramienta cuando el usuario pida redactar contenido nuevo.
+        """
+        print("\n" + "="*50)
+        print(f"[TOOL CALL] ✍️ Ejecutando: herramienta_crear_secciones")
+        
+        # Procesamos los filtros inteligentes directamente desde el Agente
+        if filtros_llm:
+            filtros_diccionario = filtros_llm.model_dump(exclude_none=True)
+            print(f"[TOOL LOG] 🔍 Filtros detectados por el agente: {filtros_diccionario}")
+        else:
+            filtros_diccionario = None
+            print(f"[TOOL LOG] 🔍 No se detectaron metadatos para filtrar.")
+
+        print(f"[TOOL LOG] 🟢 Se han solicitado {len(secciones_a_crear)} secciones principales.")
+        
+        # Listas para registrar el estado real de cada operacion
+        secciones_exito = []
+        secciones_vacias = []
+        
+        # Funcion interna recursiva para procesar N niveles de profundidad
+        def procesar_nivel(lista_secciones, ruta_padre=[]):
+            for sec in lista_secciones:
+                titulo = sec.titulo
+                instruccion = sec.instruccion_especifica
+                sub_lista = sec.subsecciones or []
+                
+                # Construimos la ruta completa (ej: ["Criterios", "Oferta Economica"])
+                ruta_actual = ruta_padre + [titulo]
+                nivel_str = " > ".join(ruta_actual)
+                
+                print(f"[TOOL LOG] --- Procesando: {nivel_str} ---")
+                
+                # Solo llamamos al RAG si hay una instruccion especifica o si es un nodo hoja (no tiene hijos)
+                if instruccion or not sub_lista:
+                    instruccion_final = instruccion if instruccion else f"Redacta el contenido de {titulo}"
+                    prompt_rag = f"Redacta la seccion '{titulo}'. Instrucciones: {instruccion_final}"
+                    print(f"[TOOL LOG] 🧠 Llamando al RAG para: {titulo}")
+                    
+                    borrador = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag, filtros=filtros_diccionario)
+                    
+                    if "Falta contexto legal" in borrador:
+                        print(f"[TOOL LOG] ❌ RAG vacio para '{titulo}'. Dejando advertencia y continuando...")
+                        motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_actual, contenido="[Seccion vacia: No se encontro contexto suficiente en la BD]")
+                        secciones_vacias.append(titulo)
+                    else:
+                        motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_actual, contenido=borrador)
+                        secciones_exito.append(titulo)
+                else:
+                    # Es un nodo contenedor (padre), lo creamos vacio en la estructura y seguimos bajando
+                    motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_actual, contenido="")
+
+                # LLAMADA RECURSIVA: Si tiene hijos, volvemos a llamar a esta misma funcion
+                if sub_lista:
+                    procesar_nivel(sub_lista, ruta_actual)
+
+        # Iniciamos la recursion pasandole la lista principal que viene del LLM
+        procesar_nivel(secciones_a_crear)
+        
+        # Generamos un reporte dinamico basado en los resultados reales
+        respuesta_llm = "Resumen de la ejecucion de la herramienta:\n"
+        if secciones_exito:
+            respuesta_llm += f"- Se redactaron con exito: {', '.join(secciones_exito)}.\n"
+        if secciones_vacias:
+            respuesta_llm += f"- NO se pudo redactar por falta de contexto legal en la BD (se inserto aviso vacio): {', '.join(secciones_vacias)}.\n"
+            
+        print(f"[TOOL RETURN] 📤 Enviando al LLM:\n{respuesta_llm}")
+        print("="*50 + "\n")
+        
+        return respuesta_llm
+
     # @tool
-    # def herramienta_crear_secciones(secciones_a_crear: List[PeticionSeccion], filtros_llm: Optional[FiltrosMetadatos] = None) -> str:
+    # def herramienta_crear_secciones(secciones_a_crear: List[PeticionSeccion], filtros_llm: Optional[FiltrosBusqueda] = None) -> str:
     #     """
     #     Crea una o multiples secciones (con o sin subsecciones) en el pliego.
     #     Usa esta herramienta cuando el usuario pida redactar contenido nuevo.
-    #     Si el usuario especifica tipos de contrato, presupuestos o detalles aplicables a metadatos, rellenalos en filtros_llm.
+    #     Si el usuario da pistas sobre el tipo de contrato (obras, servicios) o la urgencia, rellena los filtros_llm.
     #     """
     #     print("\n" + "="*50)
     #     print(f"[TOOL CALL] ✍️ Ejecutando: herramienta_crear_secciones")
         
-    #     # DEBUG DE FILTROS EN LA HERRAMIENTA
+    #     # Procesamos los filtros inteligentes directamente desde el Agente
     #     if filtros_llm:
     #         filtros_diccionario = filtros_llm.model_dump(exclude_none=True)
     #         print(f"[TOOL LOG] 🔍 Filtros detectados por el agente: {filtros_diccionario}")
@@ -81,12 +155,11 @@ def obtener_lista_herramientas(motor):
     #         filtros_diccionario = None
     #         print(f"[TOOL LOG] 🔍 No se detectaron metadatos para filtrar.")
 
-    #     # === NUEVO: BYPASS DE FILTROS PARA PRUEBA DE VECTOR PURA ===
-    #     print("[TOOL LOG] ⚠️ ATENCION: Forzando busqueda vectorial pura (Filtros desactivados intencionadamente)")
-    #     filtros_diccionario = None
-    #     # ============================================================
-
     #     print(f"[TOOL LOG] 🟢 Se han solicitado {len(secciones_a_crear)} secciones principales.")
+        
+    #     # NUEVO: Listas para registrar el estado real de cada operacion
+    #     secciones_exito = []
+    #     secciones_vacias = []
         
     #     for seccion_obj in secciones_a_crear:
     #         titulo_sec = seccion_obj.titulo
@@ -101,15 +174,15 @@ def obtener_lista_herramientas(motor):
     #             prompt_rag = f"Redacta la seccion '{titulo_sec}'. Instrucciones: {instruccion_final}"
     #             print(f"[TOOL LOG] 🧠 Llamando al RAG para: {titulo_sec}")
                 
-    #             # Inyeccion de filtros anulada por el bypass
     #             borrador = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag, filtros=filtros_diccionario)
                 
     #             if "Falta contexto legal" in borrador:
-    #                 print(f"[TOOL LOG] ⚠️ RAG vacio. Abortando guardado de '{titulo_sec}'")
-    #                 error_msg = f"ERROR: No hay documentos en la base de datos para redactar '{titulo_sec}'."
-    #                 return error_msg
+    #                 print(f"[TOOL LOG] RAG vacio para '{titulo_sec}'. Dejando advertencia y continuando...")
+    #                 motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido="[Seccion vacia: No se encontro contexto suficiente en la BD]")
+    #                 secciones_vacias.append(titulo_sec)
     #             else:
     #                 motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido=borrador)
+    #                 secciones_exito.append(titulo_sec)
     #         else:
     #             motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido="")
 
@@ -125,90 +198,26 @@ def obtener_lista_herramientas(motor):
     #                 borrador_sub = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag_sub, filtros=filtros_diccionario)
                     
     #                 if "Falta contexto legal" in borrador_sub:
-    #                     print(f"[TOOL LOG] ⚠️ RAG vacio. Abortando guardado de '{titulo_sub}'")
-    #                     error_msg = f"ERROR: No hay documentos en la base de datos para redactar '{titulo_sub}'."
-    #                     return error_msg
+    #                     print(f"[TOOL LOG] ❌ RAG vacio para '{titulo_sub}'. Dejando advertencia y continuando...")
+    #                     ruta_hijo = [titulo_sec, titulo_sub]
+    #                     motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_hijo, contenido="[Subseccion vacia: No se encontro contexto suficiente]")
+    #                     secciones_vacias.append(titulo_sub)
     #                 else:
     #                     ruta_hijo = [titulo_sec, titulo_sub]
     #                     motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_hijo, contenido=borrador_sub)
+    #                     secciones_exito.append(titulo_sub)
                     
-    #     respuesta_llm = f"Se han redactado y guardado correctamente {len(secciones_a_crear)} secciones."
+    #     # NUEVO: Generamos un reporte dinamico basado en los resultados reales
+    #     respuesta_llm = "Resumen de la ejecucion de la herramienta:\n"
+    #     if secciones_exito:
+    #         respuesta_llm += f"- Se redactaron con exito: {', '.join(secciones_exito)}.\n"
+    #     if secciones_vacias:
+    #         respuesta_llm += f"- NO se pudo redactar por falta de contexto legal en la BD (se inserto aviso vacio): {', '.join(secciones_vacias)}.\n"
+            
     #     print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_llm}")
     #     print("="*50 + "\n")
         
     #     return respuesta_llm
-
-
-
-    @tool
-    def herramienta_crear_secciones(secciones_a_crear: List[PeticionSeccion], filtros_llm: Optional[FiltrosBusqueda] = None) -> str:
-        """
-        Crea una o multiples secciones (con o sin subsecciones) en el pliego.
-        Usa esta herramienta cuando el usuario pida redactar contenido nuevo.
-        Si el usuario da pistas sobre el tipo de contrato (obras, servicios) o la urgencia, rellena los filtros_llm.
-        """
-        print("\n" + "="*50)
-        print(f"[TOOL CALL] ✍️ Ejecutando: herramienta_crear_secciones")
-        
-        # Procesamos los filtros inteligentes directamente desde el Agente
-        if filtros_llm:
-            filtros_diccionario = filtros_llm.model_dump(exclude_none=True)
-            print(f"[TOOL LOG] 🔍 Filtros expandidos por el agente: {filtros_diccionario}")
-        else:
-            filtros_diccionario = None
-            print(f"[TOOL LOG] 🔍 No se detectaron metadatos para filtrar.")
-
-        print(f"[TOOL LOG] 🟢 Se han solicitado {len(secciones_a_crear)} secciones principales.")
-        
-        for seccion_obj in secciones_a_crear:
-            titulo_sec = seccion_obj.titulo
-            instruccion_sec = seccion_obj.instruccion_especifica
-            subsecciones = seccion_obj.subsecciones or []
-            
-            print(f"[TOOL LOG] --- Procesando Seccion: {titulo_sec} ---")
-            ruta_principal = [titulo_sec]
-            
-            if instruccion_sec or not subsecciones:
-                instruccion_final = instruccion_sec if instruccion_sec else f"Redacta el contenido de {titulo_sec}"
-                prompt_rag = f"Redacta la seccion '{titulo_sec}'. Instrucciones: {instruccion_final}"
-                print(f"[TOOL LOG] 🧠 Llamando al RAG para: {titulo_sec}")
-                
-                # Pasamos los filtros_diccionario limpios al motor
-                borrador = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag, filtros=filtros_diccionario)
-                
-                if "Falta contexto legal" in borrador:
-                    print(f"[TOOL LOG] ⚠️ RAG vacio. Abortando guardado de '{titulo_sec}'")
-                    error_msg = f"ERROR: No hay documentos en la base de datos para redactar '{titulo_sec}'."
-                    return error_msg
-                else:
-                    motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido=borrador)
-            else:
-                motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_principal, contenido="")
-
-            if subsecciones:
-                for sub_obj in subsecciones:
-                    titulo_sub = sub_obj.titulo
-                    instruccion_sub = sub_obj.instruccion_especifica or f"Redacta {titulo_sub}"
-                    
-                    print(f"[TOOL LOG]  -> Generando subseccion: {titulo_sub}")
-                    prompt_rag_sub = f"Redacta la subseccion '{titulo_sub}' de la seccion '{titulo_sec}'. Instrucciones: {instruccion_sub}"
-                    print(f"[TOOL LOG] 🧠 Llamando al RAG para: {titulo_sub}")
-                    
-                    borrador_sub = generar_seccion_nueva(motor.db, motor.llm, motor.reranker, prompt_rag_sub, filtros=filtros_diccionario)
-                    
-                    if "Falta contexto legal" in borrador_sub:
-                        print(f"[TOOL LOG] ⚠️ RAG vacio. Abortando guardado de '{titulo_sub}'")
-                        error_msg = f"ERROR: No hay documentos en la base de datos para redactar '{titulo_sub}'."
-                        return error_msg
-                    else:
-                        ruta_hijo = [titulo_sec, titulo_sub]
-                        motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_hijo, contenido=borrador_sub)
-                    
-        respuesta_llm = f"Se han redactado y guardado correctamente {len(secciones_a_crear)} secciones."
-        print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_llm}")
-        print("="*50 + "\n")
-        
-        return respuesta_llm
 
 
     # @tool
