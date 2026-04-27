@@ -35,7 +35,18 @@ def ingestar_documento_individual(ruta_archivo, vector_db, llm, origen_tipo):
     
     # 1. Extraccion de metadatos con tu Pydantic + LLM
     print("[1/4] Extrayendo metadatos con IA...")
-    dicc_metadatos = procesar_documento(ruta_archivo, llm)
+    
+    resultado_procesamiento = procesar_documento(ruta_archivo, llm)
+    
+    # --- CORRECCION DEL BUG (Desempaquetado seguro) ---
+    # Si la funcion devolvio una tupla (diccionario, coste, etc), nos quedamos solo con el diccionario (indice 0)
+    if isinstance(resultado_procesamiento, tuple):
+        dicc_metadatos = resultado_procesamiento[0]
+    else:
+        # Si devuelve solo el diccionario, lo dejamos tal cual
+        dicc_metadatos = resultado_procesamiento
+    # --------------------------------------------------
+        
     diccionario_json, archivo, id_actual = carga_diccionario_archivo_unico(dicc_metadatos)
     
     # 2. Lectura del texto del Archivo
@@ -118,7 +129,7 @@ def ingestar_documento_individual(ruta_archivo, vector_db, llm, origen_tipo):
     try:
         ids = [generar_id_hash(chunk.page_content, chunk.metadata) for chunk in chunks]
         vector_db.add_documents(documents=chunks, ids=ids)
-        return True, f"Exito: Se han añadido {len(chunks)} fragmentos a la base de datos."
+        return True, f"Exito: Se han anadido {len(chunks)} fragmentos a la base de datos."
     except Exception as e:
         for chunk_individual in chunks:
                 try:

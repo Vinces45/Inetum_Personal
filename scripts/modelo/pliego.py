@@ -284,44 +284,53 @@ class BorradorPliego:
                 os.remove(archivo_a_borrar)
             except Exception as e:
                 print(f"[ERROR HISTORIAL]: No se pudo borrar {archivo_a_borrar}: {e}")
-
+        
+    
     def listar_versiones(self):
-        """Devuelve las versiones disponibles para que el LLM o usuario las vea."""
+        """Devuelve las versiones disponibles usando el timestamp como ID inmutable."""
         # Obtenemos archivos ordenados del mas NUEVO al mas VIEJO
         archivos = sorted(glob.glob(str(DIR_HISTORIAL / "borrador_*.json")), reverse=True)
         versiones = []
         
-        for i, ruta in enumerate(archivos):
+        for ruta in archivos:
             nombre_archivo = os.path.basename(ruta)
-            # Extraemos la fecha del string del archivo
-            fecha_str = nombre_archivo.replace("borrador_", "").replace(".json", "")
+            # Extraemos la fecha del string del archivo (Ej: 20260423_124753)
+            id_timestamp = nombre_archivo.replace("borrador_", "").replace(".json", "")
+            
             try:
-                fecha_obj = datetime.strptime(fecha_str, "%Y%m%d_%H%M%S")
+                fecha_obj = datetime.strptime(id_timestamp, "%Y%m%d_%H%M%S")
                 fecha_formateada = fecha_obj.strftime("%d/%m/%Y a las %H:%M:%S")
             except ValueError:
                 fecha_formateada = "Fecha desconocida"
                 
             versiones.append({
-                "id": i, # El ID 0 siempre es la version inmediatamente anterior
+                "id": id_timestamp, # ESTE ES EL CAMBIO CLAVE: ID INMUTABLE
                 "ruta": ruta,
                 "fecha": fecha_formateada
             })
             
         return versiones
         
-    def restaurar_version(self, id_version):
-        """Carga una version anterior y sobreescribe el estado actual."""
-        versiones = self.listar_versiones()
+    def restaurar_version(self, id_version: str):
+        """Carga una version anterior usando su ID (timestamp) y sobreescribe el estado actual."""
+        # Reconstruimos la ruta exacta usando el ID inmutable
+        nombre_archivo = f"borrador_{id_version}.json"
+        ruta_historica = DIR_HISTORIAL / nombre_archivo
         
-        if 0 <= id_version < len(versiones):
-            ruta_historica = versiones[id_version]["ruta"]
-            
+        if os.path.exists(ruta_historica):
             # 1. Sobreescribir el archivo principal con la version historica
             shutil.copy2(ruta_historica, self.archivo_respaldo)
             
             # 2. Recargar el arbol de nodos en memoria
             self.secciones = self.cargar_respaldo()
             
-            return True, versiones[id_version]["fecha"]
+            # Formateamos la fecha para el mensaje de exito
+            try:
+                fecha_obj = datetime.strptime(id_version, "%Y%m%d_%H%M%S")
+                fecha_str = fecha_obj.strftime("%d/%m/%Y a las %H:%M:%S")
+            except ValueError:
+                fecha_str = id_version
+                
+            return True, fecha_str
             
         return False, None

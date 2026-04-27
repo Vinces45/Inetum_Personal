@@ -125,6 +125,16 @@ def obtener_lista_herramientas(motor):
         # Iniciamos la recursion pasandole la lista principal que viene del LLM
         procesar_nivel(secciones_a_crear)
         
+        # ---------------------------------------------------------
+        # BLOQUE DE AUTO-GUARDADO (Transaccion completada)
+        # ---------------------------------------------------------
+        try:
+            motor.documento.guardar_respaldo()
+            print("[TOOL LOG] 💾 Auto-guardado ejecutado con exito tras la creacion.")
+        except Exception as e:
+            print(f"[TOOL LOG] ⚠️ Aviso: Fallo en el auto-guardado: {e}")
+        # ---------------------------------------------------------
+
         # Generamos un reporte dinamico basado en los resultados reales
         respuesta_llm = "Resumen de la ejecucion de la herramienta:\n"
         if secciones_exito:
@@ -314,6 +324,16 @@ def obtener_lista_herramientas(motor):
         ruta_lista = [t.strip() for t in ruta_exacta.split(">")]
         motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_lista, contenido=texto_corregido) 
         
+        # ---------------------------------------------------------
+        # BLOQUE DE AUTO-GUARDADO (Transaccion completada)
+        # ---------------------------------------------------------
+        try:
+            motor.documento.guardar_respaldo()
+            print("[TOOL LOG] 💾 Auto-guardado ejecutado con exito tras la modificacion.")
+        except Exception as e:
+            print(f"[TOOL LOG] ⚠️ Aviso: Fallo en el auto-guardado: {e}")
+        # ---------------------------------------------------------
+        
         respuesta_exito = f"La seccion '{ruta_exacta}' ha sido modificada con exito."
         print(f"[TOOL LOG] ✅ Arbol de nodos actualizado correctamente.")
         print(f"[TOOL RETURN] 📤 Enviando al LLM: {respuesta_exito}")
@@ -335,6 +355,7 @@ def obtener_lista_herramientas(motor):
         print(f"[TOOL LOG] 🎯 Se ha pedido borrar {len(rutas_exactas)} rutas: {rutas_exactas}")
         
         resultados = []
+        hubo_exito = False # Bandera para controlar el auto-guardado
         
         for ruta in rutas_exactas:
             # Usamos tu misma logica defensiva
@@ -344,10 +365,22 @@ def obtener_lista_herramientas(motor):
                 mensaje = f"Exito: '{ruta}' eliminada correctamente."
                 resultados.append(mensaje)
                 print(f"[TOOL LOG] ✅ {mensaje}")
+                hubo_exito = True # Marcamos que hubo al menos un borrado real
             else:
                 mensaje = f"Error: No se encontro la ruta '{ruta}'."
                 resultados.append(mensaje)
                 print(f"[TOOL LOG] ❌ {mensaje}")
+
+        # ---------------------------------------------------------
+        # BLOQUE DE AUTO-GUARDADO (Transaccion completada)
+        # ---------------------------------------------------------
+        if hubo_exito:
+            try:
+                motor.documento.guardar_respaldo()
+                print("[TOOL LOG] 💾 Auto-guardado ejecutado con exito tras la eliminacion.")
+            except Exception as e:
+                print(f"[TOOL LOG] ⚠️ Aviso: Fallo en el auto-guardado: {e}")
+        # ---------------------------------------------------------
 
         # Juntamos todos los resultados en un solo texto para que el LLM los lea
         respuesta_final = "\n".join(resultados)
@@ -503,7 +536,7 @@ def obtener_lista_herramientas(motor):
         exito_msg = (
             "El documento esta listo. Dile al usuario que puede descargarlo "
             "haciendo clic en el boton 'Descargar Pliego en Word' que ha aparecido "
-            "en la barra lateral izquierda."
+            "en el apartado de 'Editor del Pliego'. "
         )
         
         print("[TOOL LOG] ✅ Indicando al LLM que redirija a la UI.")
@@ -538,10 +571,12 @@ def obtener_lista_herramientas(motor):
             # 2. Convertimos el borrador a Word y lo guardamos temporalmente
             print("[TOOL LOG] Generando Word temporal para ingesta...")
             archivo_word_bytes = generar_bytes_word(motor.documento.secciones)
+            
             with open(ruta_temporal, "wb") as f:
-                f.write(archivo_word_bytes)
+                # AQUI ESTA EL CAMBIO: Extraemos los bytes del objeto virtual
+                f.write(archivo_word_bytes.getvalue())
                 
-            # 3. ¡LLAMAMOS A TU FUNCION ESTRELLA! Pasando origen "generado"
+            # 3. LLAMAMOS A TU FUNCION ESTRELLA! Pasando origen "generado"
             print("[TOOL LOG] Llamando a ingestar_documento_individual...")
             exito, mensaje = ingestar_documento_individual(
                 ruta_archivo=ruta_temporal, 
@@ -567,7 +602,6 @@ def obtener_lista_herramientas(motor):
                 os.remove(ruta_temporal)
                 print("[TOOL LOG] 🧹 Archivo Word temporal destruido.")
 
-
     @tool
     def herramienta_ver_historial() -> str:
         """
@@ -587,29 +621,28 @@ def obtener_lista_herramientas(motor):
             
         lineas = ["Historial de versiones disponibles:"]
         for v in versiones:
-            # El ID 0 es siempre la version inmediatamente anterior
-            lineas.append(f" - ID: {v['id']} | Fecha: {v['fecha']}")
+            # Mostramos el ID inmutable entre comillas simples para que el LLM lo capture bien
+            lineas.append(f" - ID: '{v['id']}' | Fecha: {v['fecha']}")
             
         respuesta_llm = "\n".join(lineas)
         print(f"[TOOL LOG] 🟢 {len(versiones)} versiones encontradas.")
         print("="*50 + "\n")
         return respuesta_llm
 
-
     @tool
-    def herramienta_restaurar_version(id_version: int, confirmacion_usuario: bool = False) -> str:
+    def herramienta_restaurar_version(id_version: str, confirmacion_usuario: bool = False) -> str:
         """
-        Restaura el pliego a una version anterior usando su ID.
+        Restaura el pliego a una version anterior usando su ID de texto (ej. '20260423_124753').
         REGLA CRITICA: El parametro 'confirmacion_usuario' debe ser False por defecto. 
         SOLO puedes ponerlo a True si le has advertido al usuario de las consecuencias y este ha respondido afirmativamente.
         """
         print("\n" + "="*50)
         print(f"[TOOL CALL] ⏪ Ejecutando: herramienta_restaurar_version (ID: {id_version}, Confirmado: {confirmacion_usuario})")
         
-        # 1. BARRERA DE SEGURIDAD (La herramienta se niega a actuar)
+        # 1. BARRERA DE SEGURIDAD
         if not confirmacion_usuario:
             alerta = (
-                f"SISTEMA BLOQUEADO: No puedes restaurar la version {id_version} todavia. "
+                f"SISTEMA BLOQUEADO: No puedes restaurar la version '{id_version}' todavia. "
                 "Debes decirle al usuario: '¿Estas completamente seguro de que quieres cargar esta version? Se perderan los cambios no guardados.' "
                 "Si el usuario responde que si, vuelve a llamar a esta herramienta pasando confirmacion_usuario=True."
             )
@@ -617,14 +650,14 @@ def obtener_lista_herramientas(motor):
             print("="*50 + "\n")
             return alerta
 
-        # 2. EJECUCION REAL (Si ya tenemos el True)
+        # 2. EJECUCION REAL
         exito, fecha = motor.documento.restaurar_version(id_version)
         
         if exito:
             respuesta = f"Exito: El documento ha sido restaurado correctamente a la version del {fecha}."
             print(f"[TOOL LOG] ✅ Restaurado con exito a {fecha}.")
         else:
-            respuesta = f"Error: No se pudo encontrar o restaurar la version con ID {id_version}. Revisa si el ID es correcto."
+            respuesta = f"Error: No se pudo encontrar o restaurar la version con ID '{id_version}'. Revisa si el ID es correcto."
             print(f"[TOOL LOG] ❌ Fallo al restaurar ID {id_version}.")
             
         print("="*50 + "\n")

@@ -297,7 +297,7 @@ with tab_borrador:
                     with col_btn:
                         if st.button("Crear", key=f"btn_crear_{id_componente}", use_container_width=True):
                             if nuevo_subtitulo:
-                                # Usamos tu funcion del motor para inyectar el nodo vacio en el arbol
+                                # Usamos tu funcion del motorzº para inyectar el nodo vacio en el arbol
                                 ruta_nueva = ruta_actual + [nuevo_subtitulo]
                                 motor.documento.actualizar_seccion_infinita(ruta_titulos=ruta_nueva, contenido="")
                                 st.rerun() # Recargamos la app para que se dibuje
