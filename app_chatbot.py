@@ -406,3 +406,9 @@ with tab_admin:
                 # 4. LIMPIEZA GARANTIZADA: El archivo se vaporiza siempre
                 if os.path.exists(ruta_temporal):
                     os.remove(ruta_temporal)
+
+
+
+
+
+                    ####igviudsbvjd
